@@ -11,7 +11,7 @@
 - [x] ~~keenable MCP 通道形态~~ → 文本块 `Title:/URL:/Published:/Snippets:` 锚点与解析一致；`publishedAfter` 周窗 5/5 实证命中。
 - [x] ~~hn `numericFilters=created_at_i>`~~ → 实证生效（窗内命中）。
 - [x] ~~arxiv submittedDate 子句 / openalex / crossref / pubmed / 链整跑 / read_source（抽取+落盘+SSRF 169.254 拒绝）~~ → 全通过；europepmc 首跑暴露 `resultList.result` 形状错误并修复复跑。
-- [ ] ddg / ddg-lite `df`、wikipedia、v2ex、reddit、github、searxng 公共实例：本机 DNS 污染（fake-IP/回环化）不可证，**换净网络复测**（实现侧参数构造已经出站记录核实）。
+- [ ] ddg / ddg-lite `df`、wikipedia、v2ex、reddit、github、searxng 公共实例：本机 hosts 劫持（Steam++）+ 网络层 DNS 污染（DoH 亦假）不可证，**换净网络或代理 TUN 接管复测**（实现侧参数构造已经出站记录核实）。
 - [ ] tavily / exa / perplexity / deepseek-official：探针不读凭据中心，**持 key 环境复测**。
 
 ## 实测门禁与部署（需用户指令配合，红线：agent 不起 DSH 进程）
