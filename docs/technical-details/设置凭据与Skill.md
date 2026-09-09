@@ -39,7 +39,7 @@ unity-search:
 
 - `enabled: false` 的引擎退出兜底链、源退出 fanout 可选集（对齐 modsearch 的 `engines.<name>.enabled` 语义）。
 - 设置变更热生效：`installSection` 的 `onChange` 重建 core 运行时（引擎链顺序、冷却参数、源开关）；冷却状态保留不重置。
-- 一期无自定义设置卡（非目标，见需求文档）；用户经原生设置文档编辑。
+- 配置的可视入口为设置节「统一搜索」（机制归「设置页UI」）；原生设置文档编辑始终可用。
 
 ## 凭据解析链（追溯 RQ-06）
 

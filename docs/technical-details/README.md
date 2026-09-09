@@ -9,6 +9,7 @@ dsh-unity-search 的机制文档目录。定调约束（技术栈、项目结构
 3. 「工具面与有界阅读」——高阶工具面的实现。
 4. 「源适配器清单与端点契约」——16 个源的施工细节。
 5. 「设置凭据与Skill」——配置面、凭据链与高阶用法载体。
+6. 「设置页UI」——设置界面独立标签页（配置 + 状态 + 诊断）。
 
 ## 文档地图
 
@@ -19,6 +20,7 @@ dsh-unity-search 的机制文档目录。定调约束（技术栈、项目结构
 | 工具面与有界阅读.md | search_sources/read_source 契约、正文抽取、分页、聚焦、SSRF |
 | 源适配器清单与端点契约.md | 各源端点、认证、限速、解析要点与脆弱性 |
 | 设置凭据与Skill.md | settings schema、credentials 链、skill 载体结构与 provider 契约、内容预算、L3 逃生舱 |
+| 设置页UI.md | 设置节注册、页面五区、RPC 通道契约、凭据录入、状态投影、client 构建 |
 
 ## 已知偏差与 missing evidence
 
