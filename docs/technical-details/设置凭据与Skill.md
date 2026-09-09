@@ -10,7 +10,7 @@
 unity-search:
   contact: ''                    # 礼貌池 mailto（openalex/crossref）；空则不携带
   chain:
-    order: [bing, ddg, anysearch, searxng, ddg-lite, tavily, exa, perplexity]
+    order: [bing, ddg, anysearch, searxng, ddg-lite, keenable, deepseek-official, tavily, exa, perplexity]   # keyless 在前、key 引擎在后；deepseek-official 列 key 引擎首位（修正现任回退，DSR-002 修订记录）
     cooldownSeconds: 300
     timeoutMs: 15000
   engines:                       # family: web 的引擎开关与 key 引用
@@ -19,6 +19,8 @@ unity-search:
     ddg-lite:   { enabled: true }
     anysearch:  { enabled: true }
     searxng:    { enabled: false, instances: [] }   # 公共实例 URL 列表
+    keenable:   { enabled: true, apiKeyEnv: KEENABLE_API_KEY }    # 无 key 走公共 MCP 端点，有 key 走 REST
+    deepseek-official: { enabled: true, apiKeyEnv: DEEPSEEK_API_KEY }
     tavily:     { enabled: false, apiKeyEnv: TAVILY_API_KEY }
     exa:        { enabled: false, apiKeyEnv: EXA_API_KEY }
     perplexity: { enabled: false, apiKeyEnv: PERPLEXITY_API_KEY }
@@ -26,11 +28,16 @@ unity-search:
     arxiv:        { enabled: true }
     openalex:     { enabled: true }
     crossref:     { enabled: true }
+    pubmed:       { enabled: true }
+    europepmc:    { enabled: true }
     github:       { enabled: true, apiKeyEnv: '' }  # 可选 token 提额
     stackoverflow: { enabled: true }
     hn:           { enabled: true }
     wikipedia:    { enabled: true, language: zh }
     npm:          { enabled: true }
+    v2ex:         { enabled: true }
+    bilibili:     { enabled: true }
+    reddit:       { enabled: true }
   readSource:
     defaultChars: 8000
     maxChars: 20000
@@ -109,7 +116,7 @@ frontmatter 解析与校验（name == 目录名、description ≤500、kebab-cas
 2. **源能力矩阵**：各源族擅长什么（速查简表留正文，详情下沉 `references/sources.md`），含 timeRange 支持度。
 3. **查询规划**：改写、关键词选取、时间窗、站点限定的成文指引。
 4. **多源 fanout 与交叉核验**：何时指定多源；`alsoIn` 多源命中信号的读法；`sources.failed` 与 `uncertainty` 的处置（何时重查、何时声明不确定）。
-5. **学术工作流**：关键词 → 学术三源 fanout → 去重/佐证 → 选条目 `read_source` 读 OA 页面 → 整理引注；强调元数据级证据的边界（展开下沉 `references/academic-workflow.md`）。
+5. **学术工作流**：关键词 → 学术五源 fanout → 去重/佐证 → 选条目 `read_source` 读 OA 页面 → 整理引注；强调元数据级证据的边界（展开下沉 `references/academic-workflow.md`）。
 6. **有界阅读纪律**：不灌全文；先聚焦后翻页；`truncated` 时如何续读。
 7. **L3 逃生舱**：学术长尾（paper-search-mcp 22 源）经官方 `dsh-mcp-client` 一行配置桥接；**必须显式 `use_scihub=False`**；token 税提示（57 工具全量注入，仅需要时开启）。配置样例与安全告诫下沉 `references/mcp-bridge.md`。
 

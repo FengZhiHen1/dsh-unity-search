@@ -17,8 +17,8 @@
 
 ## 二期（延期项与重访条件）
 
-- [ ] `get_bibliography`（BibTeX/CSL 导出，Crossref 原生端点；占用工具预算第 3 槽位）——重访：学术三源 test 实测稳定后。
-- [ ] 学术二期源 Semantic Scholar/PubMed/EuropePMC；OpenAlex 引文边——重访：DSR-002 的条件。
+- [ ] `get_bibliography`（BibTeX/CSL 导出，Crossref 原生端点；占用工具预算第 3 槽位）——重访：学术源 test 实测稳定后。
+- [ ] 学术二期原生化：Semantic Scholar/Unpaywall/DOAJ/OpenAIRE/bioRxiv/medRxiv/PMC/IACR/DBLP/Zenodo/HAL/CORE（13 源，L3 桥今天已覆盖；优先级按 paper-search skill 2026-09-08 实测状态排：pubmed/europepmc 已提一期，semantic/unpaywall/doaj/openaire 次优，core 需 key）；google_scholar/ssrn/base/citeseerx **建议不做原生**（实测反爬 403/需注册/常空）；OpenAlex 引文边——重访：DSR-002 的条件。
 - [ ] npm 发布评估（`dsh.compatibility.dshReleases` 已预留）——重访：github: 通道稳定运行后。
 - [ ] boot 级组合测试（官方 testkit）——重访：二期功能动工时一并补。
 
