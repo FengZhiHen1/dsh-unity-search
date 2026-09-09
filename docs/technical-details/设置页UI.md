@@ -53,7 +53,7 @@ ctx.slots.inject('settings.section', () =>
 ### 页签三：通用
 
 - `contact`（礼貌池 mailto，文本输入）。
-- 阅读：`defaultChars`、`maxChars`（数字输入）、`allowPrivate`（开关）。
+- 阅读：`defaultChars`、`maxChars`（数字输入）、`allowPrivate`（开关）；落盘：`persist`（开关）、`dir`（路径，空 = 默认插件数据目录）、`maxTotalMB`（数字）。
 
 数据面：settingsScope。
 

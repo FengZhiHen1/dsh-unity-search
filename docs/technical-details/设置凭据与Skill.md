@@ -42,6 +42,9 @@ unity-search:
     defaultChars: 8000
     maxChars: 20000
     allowPrivate: false
+    persist: true            # 全量落盘开关（DSR-006）
+    dir: ''                  # 落盘目录；空 = $DSH_HOME 下插件数据目录；test profile 必须指 fixture 目录
+    maxTotalMB: 256          # 落盘目录 LRU 驱逐上限
 ```
 
 - `enabled: false` 的引擎退出兜底链、源退出 fanout 可选集（对齐 modsearch 的 `engines.<name>.enabled` 语义）。
@@ -117,7 +120,7 @@ frontmatter 解析与校验（name == 目录名、description ≤500、kebab-cas
 3. **查询规划**：改写、关键词选取、时间窗、站点限定的成文指引。
 4. **多源 fanout 与交叉核验**：何时指定多源；`alsoIn` 多源命中信号的读法；`sources.failed` 与 `uncertainty` 的处置（何时重查、何时声明不确定）。
 5. **学术工作流**：关键词 → 学术五源 fanout → 去重/佐证 → 选条目 `read_source` 读 OA 页面 → 整理引注；强调元数据级证据的边界（展开下沉 `references/academic-workflow.md`）。
-6. **有界阅读纪律**：不灌全文；先聚焦后翻页；`truncated` 时如何续读。
+6. **有界阅读纪律**：不灌全文；先聚焦后翻页；`truncated` 时如何续读；返回内容不足或疑似抽取失真时直接 read/grep `artifactPath` 落盘副本（含 `artifactKind: 'raw'` 的判读），不重抓。
 7. **L3 逃生舱**：学术长尾（paper-search-mcp 22 源）经官方 `dsh-mcp-client` 一行配置桥接；**必须显式 `use_scihub=False`**；token 税提示（57 工具全量注入，仅需要时开启）。配置样例与安全告诫下沉 `references/mcp-bridge.md`。
 
 ## L3 逃生舱（不进插件代码）
