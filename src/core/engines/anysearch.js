@@ -1,5 +1,5 @@
 // AnySearch 引擎：免 key AI 搜索（JSON 问答式）。端点契约来源 = dsh-free-search v0.4.24 实测代码。
-// 响应字段级契约（answer 位置）为文档 missing-evidence 项，活体实跑回填（docs/ 待办清单）。
+// 活体实测（2026-09-09）：响应 data.results[] = {title,url,snippet,content}；无 answer 字段（保留宽松透传）。
 // @ts-check
 
 import { httpRequest } from '../http.js'
@@ -36,17 +36,20 @@ export const anysearch = {
     /** @type {import('../types.js').SourceItem[]} */
     const items = []
     for (const row of rows) {
-      const r = /** @type {{ url?: unknown, title?: unknown, snippet?: unknown }} */ (row)
+      const r = /** @type {{ url?: unknown, title?: unknown, snippet?: unknown, content?: unknown }} */ (row)
       if (typeof r.url !== 'string' || r.url.length === 0) continue
       items.push({
         title: typeof r.title === 'string' ? cleanSnippet(r.title, 200) : null,
         url: r.url,
-        snippet: typeof r.snippet === 'string' ? cleanSnippet(r.snippet) : null,
+        snippet: typeof r.snippet === 'string'
+          ? cleanSnippet(r.snippet)
+          : (typeof r.content === 'string' ? cleanSnippet(r.content) : null),
         publishedAt: null,
         sourceIds: {},
         extra: {},
       })
     }
+    // 实测 keyless 响应无 answer；若上游将来补上，这里宽松透传。
     const answer = typeof payload?.data?.answer === 'string' && payload.data.answer.length > 0 ? payload.data.answer : undefined
     return { status: 'ok', items, answer, latencyMs: runtime.now() - started }
   },

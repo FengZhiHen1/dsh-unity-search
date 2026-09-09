@@ -1,21 +1,13 @@
 // bing 引擎：HTML 抓取。解析锚点来源 = dsh-free-search v0.4.24 运行中代码（契约参考，代码不搬）。
-// timeRange 注：设计文档标注 filters=ex1:"ezN" 且登记为 missing evidence；本实现按 Bing 公开参数约定映射，
-// 活体实跑回填前不视为已验证（docs/ 待办清单登记项）。
+// timeRange：活体实测（2026-09-09）`filters=ex1:"ezN"` 对 www.bing.com 结果集零影响
+// （基线/day/week/month 同查询同结果，长尾查询复测一致）→ 判不支持，参数映射已删。
 // @ts-check
 
 import { httpRequest, MAX_SEARCH_BYTES } from '../http.js'
-import { cleanSnippet, stripTags, decodeEntities } from '../parse.js'
+import { cleanSnippet, decodeEntities } from '../parse.js'
 import { engineConfig } from '../config.js'
-import { parseTimeRange } from '../time.js'
 
 const ENDPOINT = 'https://www.bing.com/search'
-
-/** bing 日期档参数（ez1=24h / ez2=week / ez3=month；year 无对应档 → 不发参数）。 */
-const BING_EZ = new Map([
-  ['day', 'ez1'],
-  ['week', 'ez2'],
-  ['month', 'ez3'],
-])
 
 /**
  * @param {string} html
@@ -46,7 +38,7 @@ function parseResults(html) {
 export const bing = {
   id: 'bing',
   family: 'web',
-  supportsTimeRange: true,
+  supportsTimeRange: false,
   available(runtime) {
     return engineConfig(runtime, 'bing').enabled
   },
@@ -55,13 +47,6 @@ export const bing = {
     const params = new URLSearchParams({ q: request.query })
     if (typeof request.maxResults === 'number' && request.maxResults > 0) {
       params.set('count', String(Math.min(Math.round(request.maxResults), 50)))
-    }
-    if (request.timeRange) {
-      const parsed = parseTimeRange(request.timeRange)
-      const days = parsed && 'days' in parsed ? parsed.days : null
-      const bucket = days === null ? null : days <= 2 ? 'day' : days <= 14 ? 'week' : days <= 90 ? 'month' : null
-      const ez = bucket ? BING_EZ.get(bucket) : undefined
-      if (ez) params.set('filters', `ex1:"${ez}"`)
     }
     const result = await httpRequest(runtime, `${ENDPOINT}?${params.toString()}`, {
       timeoutMs: runtime.config.chain?.timeoutMs ?? 15000,

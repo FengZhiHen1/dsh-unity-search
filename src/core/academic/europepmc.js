@@ -57,13 +57,13 @@ export const europepmc = {
     if (!result.ok) {
       return { status: 'error', items: [], error: result.error, latencyMs: runtime.now() - started }
     }
-    const data = /** @type {{ hits?: { hitList?: unknown[] }, error?: string }} */ (result.json)
+    const data = /** @type {{ resultList?: { result?: unknown[] }, error?: string }} */ (result.json)
     if (data?.error) {
       return { status: 'error', items: [], error: { code: 'http_4xx', message: `EuropePMC error: ${data.error}` }, latencyMs: runtime.now() - started }
     }
-    const list = Array.isArray(data?.hits?.hitList) ? data.hits.hitList : null
+    const list = Array.isArray(data?.resultList?.result) ? data.resultList.result : null
     if (!list) {
-      return { status: 'error', items: [], error: { code: 'parse_failed', message: 'EuropePMC response has no hits.hitList' }, latencyMs: runtime.now() - started }
+      return { status: 'error', items: [], error: { code: 'parse_failed', message: 'EuropePMC response has no resultList.result' }, latencyMs: runtime.now() - started }
     }
     /** @type {import('../types.js').SourceItem[]} */
     const items = []
@@ -79,7 +79,12 @@ export const europepmc = {
         title: typeof h.title === 'string' ? cleanSnippet(h.title, 300) : null,
         url: url ?? `https://europepmc.org/article/${typeof h.source === 'string' ? h.source.toLowerCase() : 'med'}/${String(h.id ?? '')}`,
         snippet: typeof h.abstractText === 'string' ? cleanSnippet(h.abstractText, 500) : null,
-        publishedAt: typeof h.pubDate === 'string' ? `${h.pubDate}T00:00:00Z` : null,
+        // 活体实测（2026-09-09）：core 项无 pubDate 字段，日期取 firstPublicationDate → pubYear 兜底。
+        publishedAt: typeof h.firstPublicationDate === 'string'
+          ? `${h.firstPublicationDate}T00:00:00Z`
+          : (typeof h.pubYear === 'number' || typeof h.pubYear === 'string') && String(h.pubYear).length === 4
+            ? `${h.pubYear}-01-01T00:00:00Z`
+            : null,
         sourceIds: { ...(doi ? { doi } : {}), ...(pmid ? { pmid } : {}) },
         extra: {
           authors: typeof h.authorString === 'string' ? h.authorString.split(', ').slice(0, 8) : [],
