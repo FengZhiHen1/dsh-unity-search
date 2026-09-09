@@ -1,0 +1,11 @@
+# dsh-unity-search bundle patch：插入插件行 + 重述 web 行 provider pin。
+#
+# ⚠ 双键重述是硬性契约（L0-Seam接入.md）：patch 对 config 是整值替换，
+# 只写 searchProvider 会丢掉 base 的 fetchProvider: http，多一个 fetch provider 即 WEB_PROVIDER_AMBIGUOUS。
+- insert:
+    - id: unity-search
+      name: dsh-unity-search
+- id: web
+  config:
+    searchProvider: unity-search
+    fetchProvider: http

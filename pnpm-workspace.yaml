@@ -1,0 +1,8 @@
+allowBuilds:
+  esbuild: true
+# 本机 pnpm store 例外（AGENTS：E: 盘仓库族用自定义 store；对齐 dsh-skill-manager）。
+storeDir: E:/Project/Tool/dsh-auteur/.pnpm-store
+# 关闭 pnpm run 前置依赖核验（check 链自带门禁）。
+verifyDepsBeforeRun: false
+# store 从临时 C 盘目录迁到 E 盘族库需整删 node_modules；无 TTY 环境显式放行。
+confirmModulesPurge: false
