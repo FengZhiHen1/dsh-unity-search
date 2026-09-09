@@ -15,16 +15,16 @@
 
 | id | KEY | 端点/方式 | timeRange | 备注 |
 |---|---|---|---|---|
-| bing | 免 | HTML 解析 | 部分（filters=ez1/2/3，未活体确证） | 结果含 news 混排 |
-| ddg | 免 | HTML（html.duckduckgo.com） | ✓（df=d/w/m/y） | uddg 包装自动解 |
-| ddg-lite | 免 | HTML（lite.duckduckgo.com） | ✓（df） | 索引配对解析，容错优先 |
-| anysearch | 免 | POST api.anysearch.com/v1/search | ✗ | `answer` 进信封 |
+| bing | 免 | HTML 解析 | ✗（ez 参数活体实证零效果，已剔除） | 结果含 news 混排 |
+| ddg | 免 | HTML（html.duckduckgo.com） | ✓（df=d/w/m/y；本机环境未证效） | uddg 包装自动解 |
+| ddg-lite | 免 | HTML（lite.duckduckgo.com） | ✓（df；同上） | 索引配对解析，容错优先 |
+| anysearch | 免 | POST api.anysearch.com/v1/search | ✗ | 活体证实响应无 answer 字段；snippet 缺时回落 content |
 | searxng | 免 | 配置实例列表逐个 GET（format=json） | ✓（time_range 近似换算） | 默认停用；需 ≥1 个允许 JSON 的实例 |
-| tavily | KEY | POST api.tavily.com/search | ✓（time_range） | Bearer；401=未配置好 |
-| exa | KEY | POST api.exa.ai/search | ✓（startPublishedDate，日级精确） | highlights 作 snippet |
+| tavily | KEY | POST api.tavily.com/search | ✓（time_range，未实跑） | Bearer；401=未配置好 |
+| exa | KEY | POST api.exa.ai/search | ✓（startPublishedDate，日级精确；未实跑） | highlights 作 snippet |
 | perplexity | KEY | POST api.deepseek 风格 chat（sonar） | ✗ | citations → items（snippet=答案前缀，标记 citationOnly） |
 | deepseek-official | KEY | Anthropic messages + web_search 工具 | ✗ | 宿主现任后端自包含复刻 |
-| keenable | 免/KEY | 无 key：公共 MCP JSON-RPC；有 key：REST /v1/search | ✓（publishedAfter/相对时间） | REST 模式 realtime |
+| keenable | 免/KEY | 无 key：公共 MCP JSON-RPC；有 key：REST /v1/search | ✓ 活体实证（publishedAfter 窗内命中） | REST 模式 realtime |
 
 ## 学术源（5，题录/元数据级）
 
@@ -51,7 +51,8 @@
 | bilibili | 免 | api.bilibili.com/x/web-interface/search/all/v2 | ✗ | 必须带 referer；-412 归 rate_limited |
 | reddit | 免 | old.reddit.com/search.json | 粗（t=day 级） | UA+contact 必需；带 timeRange 时动态 `uncertainty` |
 
-## 未验证项（使用本报告时注意）
+## 验证状态（2026-09-09 活体后）
 
-- bing `filters=ex1:"ezN"` 的时效过滤效果为"约定推断"，未经活体确证（docs/ 待办清单）。
-- deepseek-official 复刻的响应块结构基于宿主同代代码阅读，官方接口若变更会进 `parse_failed`。
+- 已实证：bing（`b_algo` 锚点稳定；ez 时间参数**无效已剔除**）、anysearch（无 answer 字段）、keenable（MCP 文本块锚点 + 时间窗生效）、arxiv/hn（timeRange 生效）、其余成功源见插件 `docs/technical-details/源适配器清单与端点契约.md`《活体验证记录》。
+- 本机网络不可证（DNS 污染，实现未判负）：ddg / ddg-lite / wikipedia / v2ex / reddit / github / searxng 公共实例——换净网络复测。
+- 待 key 实跑：tavily / exa / perplexity / deepseek-official（deepseek-official 复刻块结构亦在此列）。

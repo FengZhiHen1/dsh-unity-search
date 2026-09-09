@@ -23,10 +23,10 @@ when_to_use: 用户要求"查一查/核实/找资料/最近的新闻/有没有�
 
 | 族 | 源 | timeRange |
 |---|---|---|
-| 网页链 | bing / ddg / ddg-lite / searxng / tavily / exa / keenable | ✓ |
-| 网页链 | anysearch / deepseek-official / perplexity | ✗ |
+| 网页链 | ddg / ddg-lite / searxng / tavily / exa / keenable | ✓（keenable/arxiv/hn 活体实证有效） |
+| 网页链 | bing / anysearch / deepseek-official / perplexity | ✗（bing 的 ez 参数实证无效已剔除） |
 | 学术 | arxiv / openalex / crossref / pubmed / europepmc | ✓（全部） |
-| 平台 | hn / reddit | ✓ |
+| 平台 | hn / reddit | ✓（reddit 仅 t=day 粗档） |
 | 平台 | github / stackoverflow / wikipedia / npm / v2ex / bilibili | ✗ |
 
 要点：学术五源是元数据/题录级（摘要未必全，OA 全文靠 `read_source` 读落地页）；v2ex 只有热榜本地过滤；`web` 是链式单赢者（第一个出结果的引擎拿走），多引擎 id 并发跑才产生跨引擎佐证。详表（端点、字段级行为、限额）见 `references/sources.md`。
