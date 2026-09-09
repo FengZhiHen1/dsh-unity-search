@@ -12,7 +12,7 @@
 - [ ] GitHub 远程仓库创建与 submodule 接线（`FengZhiHen1/dsh-unity-search`；需 gh 或用户手工操作）。
 - [ ] 会话冒烟：模型在原生工具与 `search_sources` 之间的选择质量（DSR-004 风险项）。
 - [ ] skill 发布前置六项验证（清单见「设置凭据与Skill」验证方式节）；其中 `pnpm pack` 解包后 `skills/` 相对路径层级、G 变体在 web 部署的端到端可见性（前提：agent 所在 preset 挂 `tool-skill`）为知识库标记的未实测边界，冒烟时核对。
-- [ ] 设置页 UI（DSR-005）：client 构建接线（`build-client.mjs` + `dist/` 进 git）、五区页面、`/unity-search` RPC 通道；curl 无浏览器通道验证 `state`/`test` 端点 + 页面冒烟（AC-08）。
+- [ ] 设置页 UI（DSR-005）：client 构建接线（`build-client.mjs` + `dist/` 进 git）、页头 + 分页页面（网页引擎/检索源/通用/诊断）、`/unity-search` RPC 通道；curl 无浏览器通道验证 `state`/`test` 端点 + 页面冒烟（AC-08）。
 - [ ] test 实测门禁（AC-01～AC-08）。
 
 ## 二期（延期项与重访条件）

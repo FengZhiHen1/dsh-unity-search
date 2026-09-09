@@ -26,19 +26,45 @@ ctx.slots.inject('settings.section', () =>
 - 导航图标接受宿主默认（宿主按 section id 硬编码图标、未开放注册；MutationObserver 改 DOM 是 skill-manager 用过的脆弱补丁，一期不做，决策见 DSR-005）。
 - `order: 17` 排在既有节之后（技能 = 16）；`label` 直接给中文（第三方节无 locale 约束）。
 
-## 页面结构（五区）
+## 页面结构（页头 + 节内分页）
 
-页面组件 = 一个纵向滚动页，五区按职责分块；配置类编辑统一走 settingsScope 草稿语义（dirty 跟踪 + 放弃/保存操作条 + `expectedRevision` 防陈旧覆盖，对齐原生卡片交互配方）。
+页面形态向原生「插件」节学两件事：页头（标题 + 一行描述）、节内 tab 分页（2026-09-09 用户指令，截图实证原生形态）。分页内的内容组织按各页签需要设计，不套用折叠卡。
 
-| 区 | 内容 | 数据面 |
-| --- | --- | --- |
-| 引擎链 | 8 个 web 引擎各一行：启用开关、顺序调整（上移/下移）、key 引用名（key 引擎）、凭据状态点与录入/清除、冷却中与最近失败徽标；链参数（`cooldownSeconds`/`timeoutMs`） | settingsScope + RPC `state` + credentials Remote |
-| 检索源 | 学术/平台源各一行：启用开关；行内附加项——`github` token 引用与凭据、`wikipedia` 语言、`searxng` 实例列表编辑器 | settingsScope + credentials Remote |
-| 阅读 | `defaultChars`/`maxChars`/`allowPrivate` | settingsScope |
-| 通用 | `contact`（礼貌池 mailto） | settingsScope |
-| 诊断 | 源选择（`web` 链 / 单引擎 / 单源）+ 查询输入 + 运行按钮 → 信封摘要：status 丸、逐源成败 chips、attempts 表（源/结果/延迟）、前 5 条标题链接、`uncertainty`/`warnings` 显式列出 | RPC `test` |
+- 页头：标题「统一搜索」+ 描述一行（"多源统一检索：网页引擎链、学术与平台源、凭据与诊断。"）。
+- 分页栏：页面自有组件状态——原生「插件配置/插件列表」分页栏是插件节私有 slot（`settings.plugins.tab`），非通用机制；样式对齐原生分页几何（文本页签：active = 前景色 + 底部指示条，inactive = secondary 色）。
+- 草稿语义：配置编辑进草稿，所在页签底部一条放弃/保存操作条（dirty 才可用，写带 `expectedRevision` 防陈旧覆盖）；切换页签保留各页签草稿。状态徽标与诊断结果是只读投影与实跑结果，不参与草稿。
 
-凭据录入行（引擎链区与检索源区内复用同一组件）：引用名存 settings（`apiKeyEnv` 字段），值经官方 `ctx.remote.credentials` 单向写入——`describe([ref])` 得 `{configured, source, writable}` 渲染状态点，「录入」开内联密码框 `set(ref, value)`，「清除」`unset(ref)`；任何路径不回显值。写入被拒（只读源遮蔽）按 RemoteError 原文呈现。
+### 页签一：网页引擎
+
+- 链参数行：`cooldownSeconds`、`timeoutMs`（数字输入）。
+- 引擎列表，每引擎一行：名称 + 状态行（冷却至时刻 / 最近失败 code 等只读细节）+ 徽标（`免 KEY`/`需 KEY·未配置`/`需 KEY·已配置`/`已停用`/`冷却中`/`失败`，Pill 原语语义色）+ 顺序调整（上移/下移）+ 启用开关。
+- key 引擎行内第二行：引用名输入 + 凭据录入行（复用组件，见下）。
+- `searxng` 行内附加：实例列表编辑器（每行一个 URL）。
+
+数据面：settingsScope + RPC `state` + credentials Remote。
+
+### 页签二：检索源
+
+- 学术/平台源各一行：名称 + 描述 + 徽标（`免 KEY`/`可选 KEY`/`已停用`）+ 启用开关。
+- 行内附加：`github` 引用名 + 凭据录入行；`wikipedia` 语言输入。
+
+数据面：settingsScope + credentials Remote。
+
+### 页签三：通用
+
+- `contact`（礼貌池 mailto，文本输入）。
+- 阅读：`defaultChars`、`maxChars`（数字输入）、`allowPrivate`（开关）。
+
+数据面：settingsScope。
+
+### 页签四：诊断
+
+- 源选择（`web` 链 / 单引擎 / 单源）+ 查询输入 + 运行按钮。
+- 结果区：status 丸、逐源成败 chips、attempts 表（源/结果/延迟）、前 5 条标题链接、`uncertainty`/`warnings` 显式列出；运行后自动重拉状态投影（冷却/最近失败即时反映到引擎行徽标）。
+
+数据面：RPC `test` + `state`。
+
+凭据录入行（引擎与源页签复用同一组件）：引用名存 settings（`apiKeyEnv` 字段），值经官方 `ctx.remote.credentials` 单向写入——`describe([ref])` 得 `{configured, source, writable}` 渲染状态点，「录入」开内联密码框 `set(ref, value)`，「清除」`unset(ref)`；任何路径不回显值。写入被拒（只读源遮蔽）按 RemoteError 原文呈现。
 
 ## RPC 通道契约
 
