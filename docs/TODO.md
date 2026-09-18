@@ -12,8 +12,9 @@
 - [x] ~~keenable MCP 通道形态~~ → 文本块 `Title:/URL:/Published:/Snippets:` 锚点与解析一致；`publishedAfter` 周窗 5/5 实证命中。
 - [x] ~~hn `numericFilters=created_at_i>`~~ → 实证生效（窗内命中）。
 - [x] ~~arxiv submittedDate 子句 / openalex / crossref / pubmed / 链整跑 / read_source（抽取+落盘+SSRF 169.254 拒绝）~~ → 全通过；europepmc 首跑暴露 `resultList.result` 形状错误并修复复跑。
-- [ ] ddg / ddg-lite `df`、wikipedia、v2ex、reddit、github、searxng 公共实例：本机 hosts 劫持（Steam++）+ 网络层 DNS 污染（DoH 亦假）不可证，**换净网络或代理 TUN 接管复测**（实现侧参数构造已经出站记录核实）。
-- [ ] tavily / exa / perplexity / deepseek-official：**持 key 环境复测**。2026-09-18 补充：`/unity-search` 的 `test` 端点走的是宿主的凭据缓存（非启动环境快照），持 key 时可直接用它复测这四个引擎。
+- [x] ~~github 可达性~~ → 2026-09-18 复测**转可用**（hosts 劫持块已被清除，hosts 现无任何生效映射；3 条命中 666ms）。
+- [ ] ddg / ddg-lite / wikipedia / v2ex / reddit：2026-09-18 复测**仍不可达**（统一 `network/fetch failed`；假 IP 池与首轮同批：`wikipedia→199.16.158.9`（Twitter 段）、`v2ex→199.59.149.205`、`reddit→69.171.235.22`（Facebook 段）、`ddg→74.86.151.162`），searxng 本轮未配实例（`no instances configured`，默认关）。**换净网络或代理 TUN 接管复测**（实现侧参数构造已经出站记录核实，非实现缺陷；明细见《源适配器清单与端点契约》复测节）。
+- [x] ~~tavily / exa / perplexity / deepseek-official~~ → 2026-09-18 经宿主诊断通道复测（`/unity-search/test`，凭据中心在场）：tavily / exa / perplexity 得 `credential not configured`（该 HOME 未录入 key，显式降级符合设计）；**deepseek-official 得 `HTTP 401`（凭据解析出值但被上游拒收；作用域仅限 test 实例 HOME，stable-dev 未测）**。持有效 key 环境仍需复测其成功路径。
 
 ## 实测门禁与部署
 
@@ -31,6 +32,7 @@
 - 复跑：启动干净（日志末行为 URL、其后 0 行），无 `did not activate`、无 `duplicate loader entry id`。
 - Host 半区实证（无浏览器通道：取 token cookie → `POST /unity-search/<endpoint>`）：`state` 返回 10 引擎 + 13 源投影，链序与配置一致；`test` 端点实跑 —— `web` 链 5 条真实结果（`status: ok`）、`arxiv` 3 篇命中、未知源 `no-such-source` 得 `status: unavailable` + `unknown_source`（显式降级）。
 - 设置链路双向实证：向 test HOME `settings.yaml` 写 `unity-search.engines.ddg.enabled: false` → `state` 读回 `ddg: enabled=False`；回退后字节数精确复原（2347）且读回 `enabled=True`。
+- 源可用性活体复测（`/unity-search/test` 逐源 24 条出站）：**14 条可用 / 5 条网络层不可达 / 5 条未配置或凭据无效**；13 个网络依赖源中 10 个可用，不可用者全由本机网络层造成（假 IP 池复现，github 因 hosts 劫持清除而转可用）——明细与成因见《源适配器清单与端点契约》复测节。
 - 未覆盖：模型面两工具与会话内 `web_search` 接管（需真实会话）、设置节页面级渲染（需浏览器）——见上「会话冒烟」。
 
 ## 二期（延期项与重访条件）
