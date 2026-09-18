@@ -2,7 +2,8 @@
 
 仅含未完成事项。解决后结果就地写入拥有该事实的文档，并从此处移除。
 
-> 2026-09-09 一期实现落地（core 41 文件 + adapter + client + skill + 97 例单测全绿；分层/产物新鲜度/质量地板三门禁通过）。原「实现期任务」中的编码项已全部完成并从本清单移除，遗留为实跑/门禁类事项如下。
+> 2026-09-09 一期实现落地（core 41 文件 + adapter + client + skill + 97 例单测全绿；分层/产物新鲜度/质量地板三门禁通过）。
+> 2026-09-18 test profile（0.1.2-rc.1）直挂实测：**首跑抓出 cordis inject 崩溃**（`ctx.settings` / `ctx.credentials` 属性访问缺 inject ⇒ 整树加载失败、profile 起不来），已修复（事实入《设置凭据与Skill》「服务访问纪律」）；复跑启动干净、Host 半区与设置文档链路双向实证。余项如下。
 
 ## 活体回填（首轮 2026-09-09 已完成，余项待净网络/持 key 环境）
 
@@ -12,26 +13,30 @@
 - [x] ~~hn `numericFilters=created_at_i>`~~ → 实证生效（窗内命中）。
 - [x] ~~arxiv submittedDate 子句 / openalex / crossref / pubmed / 链整跑 / read_source（抽取+落盘+SSRF 169.254 拒绝）~~ → 全通过；europepmc 首跑暴露 `resultList.result` 形状错误并修复复跑。
 - [ ] ddg / ddg-lite `df`、wikipedia、v2ex、reddit、github、searxng 公共实例：本机 hosts 劫持（Steam++）+ 网络层 DNS 污染（DoH 亦假）不可证，**换净网络或代理 TUN 接管复测**（实现侧参数构造已经出站记录核实）。
-- [ ] tavily / exa / perplexity / deepseek-official：探针不读凭据中心，**持 key 环境复测**。
+- [ ] tavily / exa / perplexity / deepseek-official：**持 key 环境复测**。2026-09-18 补充：`/unity-search` 的 `test` 端点走的是宿主的凭据缓存（非启动环境快照），持 key 时可直接用它复测这四个引擎。
 
-## 实测门禁与部署（需用户指令配合，红线：agent 不起 DSH 进程）
+## 实测门禁与部署
 
-- [ ] test profile 直挂冒烟（AC-01～AC-09）：开工前置必跑 `node tools/skill-manager-baseline.mjs gate --prod <生产实例名> --test <试验实例名>` 五条全绿；`readSource.dir` 配置必须指向 fixture 目录（不得用默认 `$DSH_HOME/unity-search/readings` 之外的真实生产路径）。
-- [ ] skill 发布前置六项（「设置凭据与Skill」验证方式节）：目录出现 `unity-search`、`skill()` 与 `/unity-search` 均可加载、项目同名覆盖生效、卸载即消失、`pnpm pack` 解包后 `skills/` 相对路径层级正确、过 test 门禁。
-- [ ] 会话冒烟：模型在原生工具与 `search_sources` 间的选择质量（DSR-004 风险项）。
-- [ ] GitHub 远程仓库创建与 submodule 接线（`FengZhiHen1/dsh-unity-search`；需 gh 或用户手工）→ 子仓 push → 顶层 gitlink 提交 → test 门禁 → `dsh plugin --profile web add github:…`。
-- [ ] web profile 移除 free-search 并以本插件替换（DSR-001 后果；未经用户明确指令不执行）。
+- [x] ~~test profile 直挂冒烟（Host 半区）~~ → 2026-09-18 实测记录见下方「2026-09-18 test 实测实录」。
+- [ ] 会话冒烟（模型与页面面，Host 半区已实测）：AC-01（原生 `web_search` 经 seam 接管走本插件链）、AC-02/AC-03（`search_sources` 多源 fanout 与降级信封）、AC-04/AC-09（`read_source` 分页/聚焦/artifact 落盘与 LRU）、AC-05（`<available_skills>` 含 `unity-search`、`skill()` 与 `/unity-search` 加载、卸载即消失、项目同名覆盖）、AC-08（设置节渲染 + 凭据录入 + 诊断区实跑 + 无 cookie 负例 401）。
+- [ ] skill 发布前置六项（「设置凭据与Skill」验证方式节）：目录出现 `unity-search`、`skill()` 与 `/unity-search` 均可加载、项目同名覆盖生效、卸载即消失、`pnpm pack` 解包后 `skills/` 相对路径层级正确。
+- [x] ~~GitHub 远程仓库创建与 submodule 接线（`FengZhiHen1/dsh-unity-search`）~~ → 2026-09-18 建 public 仓库 + 子仓 push + 补 origin + 顶层 gitlink 提交。
+- [ ] web profile 挂载（DSR-001 后果）：先移除同 seam 的 `dsh-free-search`，再 `dsh plugin --profile web add github:FengZhiHen1/dsh-unity-search`；**须用户明确指令**（涉运行中的 stable-dev 实例重启，会打断会话）。
 
-## 实现期偏差登记（代码按运行时证据落地，文档表述待回填）
+## 2026-09-18 test 实测实录（0.1.2-rc.1）
 
-- [ ] 「设置页UI」称 client 注入包当前名为 `dsh-client-modules`——运行时安装树浏览器模块表实测注册 id 为 `@deepseek-ai/dsh-client-runtime`（dsh 0.1.2-rc.1 现场 grep `__ModuleLoader__.load({id:}` + 在跑的 dsh-skill-manager dist 同此），`package.json` 的 `dsh.client.inject` 与构建外化均按运行时 id 落地。
-- [ ] 「设置页UI」称页签样式用 `*.module.css`——实际沿用 dsh-skill-manager 先例：内联样式 + `--dsw-alias-*` token（宿主 client 构建链对 CSS modules 支持未证实，内联为可运行事实）。
-- [ ] 「工具面与有界阅读」`read_source` 返回示例未含 `status`/`error` 两字段——实现扩展为结构恒定完整（失败也是 2xx 形结果对象），示例待补。
-- [ ] `search_sources` 的 `sources` 参数枚举定为 `web + 13 学术/平台源`（引擎 id 不进常驻工具面枚举，引擎级直调仅诊断 RPC 暴露）——文档如另有暗示以本条为准补齐。
+- 前置：`node tools/skill-manager-baseline.mjs gate --prod stable-dev --test test` 五条全绿（工作区注册表 0 条、skillsDir 为 `E:\Project\Skills-test\skills` fixture）。
+- 现场：test profile 移除同 seam 的 `dsh-free-search@0.4.24`（互斥；回滚命令 `dsh plugin --profile test add dsh-free-search@0.4.24`）→ `link:E:/Project/DSH_Plugins/plugins/dsh-unity-search` → `--dump-config` 复查（`web` 行双键重述为 `searchProvider: unity-search` + `fetchProvider: http`，插件行来源 `# == dsh-unity-search`）。
+- 首跑：`failed to apply loader entry unity-search … cannot get property "settings" without inject`（堆栈落在 `src/adapter/settings.js` 的 `installSection`）⇒ 整树加载失败。修复：`installSettings` 改 `ctx.inject(['settings'], …)` 动态注入、凭据解析改在 `ctx.get('credentials')` 的返回对象上调 `resolve`。
+- 复跑：启动干净（日志末行为 URL、其后 0 行），无 `did not activate`、无 `duplicate loader entry id`。
+- Host 半区实证（无浏览器通道：取 token cookie → `POST /unity-search/<endpoint>`）：`state` 返回 10 引擎 + 13 源投影，链序与配置一致；`test` 端点实跑 —— `web` 链 5 条真实结果（`status: ok`）、`arxiv` 3 篇命中、未知源 `no-such-source` 得 `status: unavailable` + `unknown_source`（显式降级）。
+- 设置链路双向实证：向 test HOME `settings.yaml` 写 `unity-search.engines.ddg.enabled: false` → `state` 读回 `ddg: enabled=False`；回退后字节数精确复原（2347）且读回 `enabled=True`。
+- 未覆盖：模型面两工具与会话内 `web_search` 接管（需真实会话）、设置节页面级渲染（需浏览器）——见上「会话冒烟」。
 
 ## 二期（延期项与重访条件）
 
 - [ ] `get_bibliography`（BibTeX/CSL 导出，Crossref 原生端点；占用工具预算第 3 槽位）——重访：学术源 test 实测稳定后。
 - [ ] 学术二期原生化：Semantic Scholar/Unpaywall/DOAJ/OpenAIRE/bioRxiv/medRxiv/PMC/IACR/DBLP/Zenodo/HAL/CORE（13 源，L3 桥今天已覆盖；优先级按 paper-search skill 2026-09-08 实测状态排：pubmed/europepmc 已提一期，semantic/unpaywall/doaj/openaire 次优，core 需 key）；google_scholar/ssrn/base/citeseerx **建议不做原生**（实测反爬 403/需注册/常空）；OpenAlex 引文边——重访：DSR-002 的条件。
-- [ ] npm 发布评估（`dsh.compatibility.dshReleases` 已预留）——重访：github: 通道稳定运行后。
+- [ ] npm 发布评估——重访：github: 通道稳定运行后。**注**：manifest 目前**未**预留任何版本约束字段（`dsh` 只有 `bundle`/`client` 两键），发布前需自行补。
 - [ ] boot 级组合测试（官方 testkit）——重访：二期功能动工时一并补。
+- [ ] 适配层接线单测（`installSettings` / `createCredentialState`）：当前 97 例只覆盖 core，adapter 接线零测试——本次 inject 崩溃正是这一空白的直接后果——重访：接入官方 testkit 时补。

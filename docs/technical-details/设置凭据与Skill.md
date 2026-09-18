@@ -50,10 +50,11 @@ unity-search:
 - `enabled: false` 的引擎退出兜底链、源退出 fanout 可选集（对齐 modsearch 的 `engines.<name>.enabled` 语义）。
 - 设置变更热生效：`installSection` 的 `onChange` 重建 core 运行时（引擎链顺序、冷却参数、源开关）；冷却状态保留不重置。
 - 配置的可视入口为设置节「统一搜索」（机制归「设置页UI」）；原生设置文档编辑始终可用。
+- **服务访问纪律（cordis 4.0.2；2026-09-18 test 实测踩坑）**：本插件 fiber 的 `inject` 不含 `settings` / `credentials`，因此 `ctx.settings` / `ctx.credentials` 这类**属性访问会抛** `cannot get property "X" without inject`；抛出点在 `apply` 内 ⇒ 整棵 plugin tree 加载失败、profile 起不来（实测堆栈落在 `src/adapter/settings.js` 的 `installSection`）。两条合法通道：① 需要**等依赖就绪**的服务走 `ctx.inject([...], (sub) => …)` 动态注入——section 装载用这条，回调内 `sub.settings` 合法（官方 `dsh-web-search-deepseek` 同法）；② **可选/同步取值**走 `ctx.get('name')` 并在**返回对象上**调方法（凭据解析用这条），绝不再写 `ctx.name`。
 
 ## 凭据解析链（追溯 RQ-06）
 
-- 设置字段 `apiKeyEnv` 存**引用名**，不存 key；取值经 `ctx.credentials.resolve(ref)` 落到 credentials 中心（四层优先：启动环境快照 > `.credentials.yaml` > 项目 `.env` > `$DSH_HOME/.env`）。
+- 设置字段 `apiKeyEnv` 存**引用名**，不存 key；取值经 `ctx.get('credentials')` 的返回对象调 `resolve(ref)`（写法见上「服务访问纪律」；服务缺席即全 key 引擎判未配置），落到 credentials 中心（四层优先：启动环境快照 > `.credentials.yaml` > 项目 `.env` > `$DSH_HOME/.env`）。
 - adapter 把 `resolveCredential` 注入 core `runtime`；key 引擎 `available()` = `enabled && resolveCredential(ref) 有值`。声明了 `apiKeyEnv` 而引用未设置 → 该引擎不可用（不回落无关环境变量，防串 key）。
 - `ctx.credentials` 为可选依赖：服务缺席时所有 key 引擎不可用，免 key 面不受影响。
 

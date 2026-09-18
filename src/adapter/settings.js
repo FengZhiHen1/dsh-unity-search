@@ -174,19 +174,23 @@ export function validateConfig(value) {
 }
 
 /**
- * 装配 settings 消费面：installSection 挂载（缺席回落 entry 配置）。
+ * 装配 settings 消费面：settings 服务就绪时装 section，始终可缺席（回落 entry 配置）。
+ *
+ * 服务访问纪律（cordis 4.0.2，实测）：本 fiber 的 inject 不含 settings，故 `ctx.settings`
+ * 属性访问抛 `cannot get property "settings" without inject`（整个 profile 启动失败）；
+ * 动态注入是官方通道——`ctx.inject(['settings'], (settingsCtx) => …)` 起子 fiber，
+ * 依赖就绪后才执行回调，回调内 `settingsCtx.settings` 合法（同 `dsh-web-search-deepseek`）。
  * @param {import('@deepseek-ai/cordis').Context} ctx
  * @param {unknown} entryConfig apply 收到的插件 entry 配置
  * @param {() => void} [onChange] 变更回调（热重建消费方）
- * @returns {{ current: () => CoreConfig, settingsService: boolean }}
+ * @returns {{ current: () => CoreConfig }}
  */
 export function installSettings(ctx, entryConfig, onChange) {
   let base = resolveConfig(entryConfig)
   /** @type {(() => CoreConfig) | null} */
   let source = null
-  const settingsService = ctx.get('settings') != null
-  if (settingsService) {
-    ctx.settings.installSection(ctx, NAMESPACE, Config, base, {
+  ctx.inject(['settings'], (settingsCtx) => {
+    settingsCtx.settings.installSection(ctx, NAMESPACE, Config, base, {
       setSource: (current) => {
         source = current
       },
@@ -195,10 +199,9 @@ export function installSettings(ctx, entryConfig, onChange) {
       },
       validate: validateConfig,
     })
-  }
+  })
   return {
     current: () => resolveConfig(source ? source() : base),
-    settingsService,
   }
 }
 
@@ -224,6 +227,7 @@ export function createCredentialState(ctx, settings) {
   }
 
   async function refresh() {
+    // ctx.get 免 inject 取值；调用一律落在返回对象上（`ctx.credentials` 属性访问会抛，见 installSettings 注）。
     const credentials = ctx.get('credentials')
     if (credentials == null) return
     if (inflight) await inflight
@@ -231,7 +235,7 @@ export function createCredentialState(ctx, settings) {
       for (const ref of refs()) {
         try {
           // resolve 收 CredentialRef 品牌串；品牌仅类型层，运行时传纯字符串（宿主 resolve 同样按串查表）。
-          const resolved = await ctx.credentials.resolve(/** @type {never} */ (ref))
+          const resolved = await credentials.resolve(/** @type {never} */ (ref))
           cache.set(ref, resolved && typeof resolved.value === 'string' && resolved.value.length > 0 ? resolved.value : null)
         } catch (error) {
           // 单次解析失败不伪装成"未配置"：保持未探知态，下轮刷新重试。

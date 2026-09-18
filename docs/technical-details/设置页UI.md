@@ -85,9 +85,9 @@ Host 侧 `ctx.connection.rpc.handle('/unity-search', dispatch)`（继承 loopbac
 
 ## 构建与纯净度
 
-- 复刻 skill-manager `build-client.mjs`：`src/client/index.jsx` → esbuild → `dist/client.js`（lazy-CJS factory、platform browser、外部表 = 模块系统基线 + primitives）。`exports["./client"]` + `dsh.client = { platform: 'web', inject: [...] }`（inject 列 slots/primitives/connection/settings 提供包；**不用已改名的 `dsh-client-runtime`**，写当前名 `dsh-client-modules`——旧名会被静默跳过）。
+- 复刻 skill-manager `build-client.mjs`：`src/client/index.jsx` → esbuild → `dist/client.js`（lazy-CJS factory、platform browser、外部表 = 模块系统基线 + primitives）。`exports["./client"]` + `dsh.client = { platform: 'web', inject: [...] }`；实际四项 = `@deepseek-ai/dsh-client-runtime`、`dsh-client-ui-slots`、`dsh-client-ui-primitives`、`dsh-client-connection`——前两项与生产在跑的 `dsh-free-search`（只列 runtime）、四项与 `dsh-skill-manager` 逐字一致，四个 id 在 0.1.2-rc.1 安装树里均有官方 client bundle 互相 `require` 佐证。⚠ `dsh-client-modules` **不是**浏览器模块 id，它是 Host 侧 `modules` 行的包名（扫描 `dsh.client` 行、组装 `__DSH_BOOT__`、服务 `/plugins/<id>/client.js`）；`inject` 项指向不存在的包只会被静默跳过，不影响本模块加载（知识库 `must-read/04` §7）。
 - 纯净度门禁：client 代码对 `@deepseek-ai/*` 只允许模块表基线的 value import（primitives 为 static UI library 直接 `require`），其余一律 type-only；跨插件协作走 cordis service。
-- 样式：`.module.css`（构建内联）；几何与 token 对齐原生设置页；交互态（disabled/hover/focus）按原生配方以状态条件算样式（无伪类依赖），禁用态必须可见（知识库 `client/15` §4.1 红线）。
+- 样式：内联样式 + `--dsw-alias-*` token（沿用 `dsh-skill-manager` 先例；宿主 client 构建链对 CSS modules 的支持未证实，内联是可运行事实）；几何与 token 对齐原生设置页；交互态（disabled/hover/focus）按原生配方以状态条件算样式（无伪类依赖），禁用态必须可见（知识库 `client/15` §4.1 红线）。
 
 ## 失败语义
 
