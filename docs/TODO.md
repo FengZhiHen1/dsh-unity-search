@@ -13,6 +13,7 @@
 - [x] ~~hn `numericFilters=created_at_i>`~~ → 实证生效（窗内命中）。
 - [x] ~~arxiv submittedDate 子句 / openalex / crossref / pubmed / 链整跑 / read_source（抽取+落盘+SSRF 169.254 拒绝）~~ → 全通过；europepmc 首跑暴露 `resultList.result` 形状错误并修复复跑。
 - [x] ~~github 可达性~~ → 2026-09-18 复测**转可用**（hosts 劫持块已被清除，hosts 现无任何生效映射；3 条命中 666ms）。
+- [ ] 路径层复测（2026-09-18 新证据）：给 test 实例注入 `NODE_USE_ENV_PROXY=1`（或改用代理 TUN 透明模式）后复跑 `ddg-lite` / `wikipedia` / `v2ex`——预期三者转可用（经代理已得 200 + 期望锚点）；`ddg`（202 挑战页）与 `reddit`（403 出口被拒）预期仍不可用。⚠ 该变量作用于**全进程 fetch（含 LLM 调用链路）**，副作用未测，须一并回归。
 - [ ] ddg / ddg-lite / wikipedia / v2ex / reddit：2026-09-18 复测**仍不可达**（统一 `network/fetch failed`；假 IP 池与首轮同批：`wikipedia→199.16.158.9`（Twitter 段）、`v2ex→199.59.149.205`、`reddit→69.171.235.22`（Facebook 段）、`ddg→74.86.151.162`），searxng 本轮未配实例（`no instances configured`，默认关）。**换净网络或代理 TUN 接管复测**（实现侧参数构造已经出站记录核实，非实现缺陷；明细见《源适配器清单与端点契约》复测节）。
 - [x] ~~tavily / exa / perplexity / deepseek-official~~ → 2026-09-18 经宿主诊断通道复测（`/unity-search/test`，凭据中心在场）：tavily / exa / perplexity 得 `credential not configured`（该 HOME 未录入 key，显式降级符合设计）；**deepseek-official 得 `HTTP 401`（凭据解析出值但被上游拒收；作用域仅限 test 实例 HOME，stable-dev 未测）**。持有效 key 环境仍需复测其成功路径。
 
