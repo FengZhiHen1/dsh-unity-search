@@ -94,6 +94,8 @@ skills/unity-search/
 
 frontmatter 解析与校验（name == 目录名、description ≤500、kebab-case、标准 YAML）为 `src/core/catalog.js` 纯函数，裸 node 单测。
 
+⚠ **`list()` 读盘必须显式给 encoding（2026-09-21 活体定位）**：`readFile(file, { signal })` 不带 encoding 时交的是 **Buffer**，`catalog.js` 的 `markdown.slice(...)` 因此落到 `Buffer.prototype.slice` ⇒ 正文变 Buffer ⇒ `parsed.body.trim()` 抛 `TypeError`；该异常在目录装配期被逐-provider 容错吞掉，**症状是"工具面正常、技能面整体静默消失"**（`skill("unity-search")` 报 unknown，日志里也无告警）。修法两处：① 调用方 `readFile(file, { signal, encoding: 'utf8' })`；② `parseFrontmatter`/`validateSkillDoc` 对非字符串输入按 UTF-8 字符串化，兑现其「永不抛」契约——单处即可消除症状，两处都保留（同时修正调用点类型与核心契约）。回归：`test/skill-binding.test.mjs`（走真实磁盘路径驱动 `registerSkill`，adapter 层首个用例）+ `test/catalog.test.mjs` 的 Buffer 契约用例；**消融已验证**：两处保护同时移除时该用例失败。
+
 ### 内容预算与分层（硬约束）
 
 - **SKILL.md 正文 ≤ ~8k 码点**：DSH 无技能内容豁免机制，`tool/result` 超 8192 码点会被 ToolResultPruner 剪掉中段；按码点不按字节（中文 3 字节/码点）。

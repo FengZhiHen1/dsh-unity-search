@@ -44,7 +44,10 @@ export function registerSkill(ctx) {
     /** @type {string} */
     let markdown
     try {
-      markdown = await readFile(file, { signal })
+      // encoding 必须显式给：不带 encoding 时 readFile 交的是 Buffer，正文处理会抛
+      // `parsed.body.trim is not a function`，导致整个 provider 在目录装配期被跳过——
+      // 症状是"工具面正常、技能面静默消失"（2026-09-21 活体实测定位）。
+      markdown = await readFile(file, { signal, encoding: 'utf8' })
     } catch (error) {
       const code = /** @type {NodeJS.ErrnoException} */ (error).code
       if (code && code !== 'ENOENT') warn(`unity-search skill: 读取失败 ${file}：${String(error && error.message ? error.message : error)}`)

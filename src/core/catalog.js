@@ -13,29 +13,32 @@ const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/
 
 /**
  * 解析 YAML-lite frontmatter（仅一级 `key: value`；值支持引号包裹）。
- * @param {string} markdown
+ * 非字符串输入按 UTF-8 字符串化——本函数与其上层的契约是「永不抛」，而 Buffer 输入
+ * 会让 `slice`/`trim` 落到 Buffer 语义上抛 TypeError（2026-09-21 活体实测）。
+ * @param {string | Uint8Array} markdown
  * @returns {{ fields: Record<string, string>, body: string, error: string | null }}
  */
 export function parseFrontmatter(markdown) {
-  const match = FRONTMATTER_RE.exec(markdown)
-  if (!match) return { fields: {}, body: markdown, error: '缺少 frontmatter（--- 块）' }
+  const text = typeof markdown === 'string' ? markdown : String(markdown ?? '')
+  const match = FRONTMATTER_RE.exec(text)
+  if (!match) return { fields: {}, body: text, error: '缺少 frontmatter（--- 块）' }
   /** @type {Record<string, string>} */
   const fields = {}
   for (const line of match[1].split(/\r?\n/)) {
     if (line.trim().length === 0 || line.trimStart().startsWith('#')) continue
     // 嵌套结构（缩进行）不是一期契约面：判为解析错误而不是静默吞。
     if (/^\s/.test(line)) {
-      return { fields: {}, body: markdown, error: `frontmatter 含不支持的嵌套行：${line.trim().slice(0, 60)}` }
+      return { fields: {}, body: text, error: `frontmatter 含不支持的嵌套行：${line.trim().slice(0, 60)}` }
     }
     const kv = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line)
-    if (!kv) return { fields: {}, body: markdown, error: `frontmatter 行无法解析：${line.trim().slice(0, 60)}` }
+    if (!kv) return { fields: {}, body: text, error: `frontmatter 行无法解析：${line.trim().slice(0, 60)}` }
     let value = kv[2].trim()
     if ((value.startsWith('"') && value.endsWith('"') && value.length >= 2) || (value.startsWith("'") && value.endsWith("'") && value.length >= 2)) {
       value = value.slice(1, -1).replace(/""/g, '"')
     }
     fields[kv[1]] = value
   }
-  return { fields, body: markdown.slice(match[0].length), error: null }
+  return { fields, body: text.slice(match[0].length), error: null }
 }
 
 /**

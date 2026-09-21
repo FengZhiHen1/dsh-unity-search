@@ -48,3 +48,14 @@ test('bodyBudgetWarning：8192 码点界（中文按码点不按字节）', () =
   assert.match(String(bodyBudgetWarning(over)), /8193 码点/)
   assert.equal(bodyBudgetWarning(Buffer.from('字'.repeat(MAX_BODY_CODEPOINTS + 1), 'utf8').toString('utf8')) !== null, true, '字节 3× 于码点仍按码点判')
 })
+
+// ── 契约回归（2026-09-21 活体）：docstring 写「永不抛」，但 Buffer 输入曾致 TypeError，
+//    使 provider 在目录装配期被整体跳过（工具面正常、技能面静默消失）──
+test('validateSkillDoc：Buffer 输入不抛且按 UTF-8 解析（"永不抛"契约）', () => {
+  const buf = Buffer.from(GOOD, 'utf8')
+  const r = validateSkillDoc({ dirName: 'unity-search', markdown: buf })
+  assert.equal(r.ok, true)
+  assert.equal(r.name, 'unity-search')
+  assert.equal(r.body.trim().length > 0, true, '正文必须是字符串（Buffer 会让 trim 抛）')
+  assert.equal(parseFrontmatter(buf).error, null)
+})
