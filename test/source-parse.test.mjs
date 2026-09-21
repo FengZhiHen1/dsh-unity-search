@@ -2,6 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { wikipedia } from '../src/core/platforms/wikipedia.js'
+import { ddgLite } from '../src/core/engines/ddg-lite.js'
 import { arxiv } from '../src/core/academic/arxiv.js'
 import { openalex } from '../src/core/academic/openalex.js'
 import { v2ex, filterHotTopics } from '../src/core/platforms/v2ex.js'
@@ -93,4 +94,31 @@ test('pubmed：efetch XML → 题录条目', () => {
 test('未路由请求显形（fetch 替身不吞错）', async () => {
   const fetch = makeFetch([])
   await assert.rejects(() => fetch('https://nowhere.tld/'), /unrouted/)
+})
+
+// ── ddg-lite 解析回归（2026-09-18：本机经代理活体暴露——"取第一个双引号串当 href"取到 rel 值，9 条结果被静默丢弃）──
+const DDG_LITE_HTML = `<html><body><table>
+  <tr><td><a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdeepseek.com%2Fen%2Findex.html&amp;rut=85e378ac" class='result-link'>DeepSeek | Into the Unknown</a></td></tr>
+  <tr><td class="result-snippet">DeepSeek official site</td></tr>
+  <tr><td><a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.deepseek.com%2Fen%2Fplatform%2F&amp;rut=0385124b" class='result-link'>DeepSeek | API Platform</a></td></tr>
+</table></body></html>`
+
+test('ddg-lite：rel 先于 href 的真实标记仍能取到解包后的真实 URL', async () => {
+  const fetch = makeFetch([['https://lite.duckduckgo.com/lite/', () => makeResponse(200, DDG_LITE_HTML)]])
+  const rt = makeRuntime({ fetch })
+  const out = await ddgLite.search({ query: 'deepseek', maxResults: 3 }, rt)
+  assert.equal(out.status, 'ok')
+  assert.equal(out.items.length, 2, 'rel 值不得被当作 href 而整批丢弃')
+  assert.equal(out.items[0].url, 'https://deepseek.com/en/index.html')
+  assert.equal(out.items[0].title, 'DeepSeek | Into the Unknown')
+  assert.equal(out.items[1].url, 'https://www.deepseek.com/en/platform/')
+})
+
+test('ddg-lite：检出结果块但提取全失败时以 warning 显形（不静默交空结果）', async () => {
+  const fetch = makeFetch([['https://lite.duckduckgo.com/lite/', () => makeResponse(200, "<a class='result-link'>没有 href 的锚点</a>")]])
+  const rt = makeRuntime({ fetch })
+  const out = await ddgLite.search({ query: 'x' }, rt)
+  assert.equal(out.status, 'ok')
+  assert.equal(out.items.length, 0)
+  assert.match(out.warnings?.[0] ?? '', /页面结构可能已变/)
 })

@@ -13,7 +13,9 @@
 - [x] ~~hn `numericFilters=created_at_i>`~~ → 实证生效（窗内命中）。
 - [x] ~~arxiv submittedDate 子句 / openalex / crossref / pubmed / 链整跑 / read_source（抽取+落盘+SSRF 169.254 拒绝）~~ → 全通过；europepmc 首跑暴露 `resultList.result` 形状错误并修复复跑。
 - [x] ~~github 可达性~~ → 2026-09-18 复测**转可用**（hosts 劫持块已被清除，hosts 现无任何生效映射；3 条命中 666ms）。
-- [ ] 路径层复测（2026-09-18 新证据）：给 test 实例注入 `NODE_USE_ENV_PROXY=1`（或改用代理 TUN 透明模式）后复跑 `ddg-lite` / `wikipedia` / `v2ex`——预期三者转可用（经代理已得 200 + 期望锚点）；`ddg`（202 挑战页）与 `reddit`（403 出口被拒）预期仍不可用。⚠ 该变量作用于**全进程 fetch（含 LLM 调用链路）**，副作用未测，须一并回归。
+- [ ] 实例级落地（2026-09-18 已在代码级证实）：给 test 实例注入 `NODE_USE_ENV_PROXY=1`（或改用代理 TUN 透明模式）后复跑——**代码级 A/B 已证**该变量让 `ddg` / `wikipedia` / `ddg-lite` 恢复出结果、`v2ex` 可达且解析正常（本次查询真空）。⚠ 该变量作用于**全进程 fetch（含 LLM 调用链路）**，副作用未测须一并回归；注入需重启实例（变更命令要求官方启动器关闭）。
+- [ ] `reddit` 出口问题：经代理仍 404/403（Reddit 拒该出口 IP）——需其他出口或凭据策略，与网络层修复无关。
+- [x] ~~`ddg-lite` 解析回归~~ → 2026-09-18 经代理活体暴露「取第一个双引号串当 href（取到 `rel="nofollow"`）」⇒ 9 条结果静默丢弃（`status: ok, items: 0`）；已修（按属性名取 href + 结构漂移 warning），消融复跑 0 → 3 条，补两条回归用例，单测 97 → 99。**教训**：源长期不可达会掩盖解析层缺陷——可达性恢复后必须做适配器级（而非 curl 标记级）复跑。
 - [ ] ddg / ddg-lite / wikipedia / v2ex / reddit：2026-09-18 复测**仍不可达**（统一 `network/fetch failed`；假 IP 池与首轮同批：`wikipedia→199.16.158.9`（Twitter 段）、`v2ex→199.59.149.205`、`reddit→69.171.235.22`（Facebook 段）、`ddg→74.86.151.162`），searxng 本轮未配实例（`no instances configured`，默认关）。**换净网络或代理 TUN 接管复测**（实现侧参数构造已经出站记录核实，非实现缺陷；明细见《源适配器清单与端点契约》复测节）。
 - [x] ~~tavily / exa / perplexity / deepseek-official~~ → 2026-09-18 经宿主诊断通道复测（`/unity-search/test`，凭据中心在场）：tavily / exa / perplexity 得 `credential not configured`（该 HOME 未录入 key，显式降级符合设计）；**deepseek-official 得 `HTTP 401`（凭据解析出值但被上游拒收；作用域仅限 test 实例 HOME，stable-dev 未测）**。持有效 key 环境仍需复测其成功路径。
 
@@ -42,4 +44,4 @@
 - [ ] 学术二期原生化：Semantic Scholar/Unpaywall/DOAJ/OpenAIRE/bioRxiv/medRxiv/PMC/IACR/DBLP/Zenodo/HAL/CORE（13 源，L3 桥今天已覆盖；优先级按 paper-search skill 2026-09-08 实测状态排：pubmed/europepmc 已提一期，semantic/unpaywall/doaj/openaire 次优，core 需 key）；google_scholar/ssrn/base/citeseerx **建议不做原生**（实测反爬 403/需注册/常空）；OpenAlex 引文边——重访：DSR-002 的条件。
 - [ ] npm 发布评估——重访：github: 通道稳定运行后。**注**：manifest 目前**未**预留任何版本约束字段（`dsh` 只有 `bundle`/`client` 两键），发布前需自行补。
 - [ ] boot 级组合测试（官方 testkit）——重访：二期功能动工时一并补。
-- [ ] 适配层接线单测（`installSettings` / `createCredentialState`）：当前 97 例只覆盖 core，adapter 接线零测试——本次 inject 崩溃正是这一空白的直接后果——重访：接入官方 testkit 时补。
+- [ ] 适配层接线单测（`installSettings` / `createCredentialState`）：单测只覆盖 core，adapter 接线零测试——inject 崩溃正是这一空白的直接后果；同时 **ddg/ddg-lite 两个 HTML 抓取引擎的解析用例也曾长期缺位**（ddg-lite 的 href 提取 bug 因此存活到 2026-09-18）——重访：接入官方 testkit 时一并补。

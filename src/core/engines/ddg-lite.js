@@ -41,7 +41,9 @@ export const ddgLite = {
     const items = []
     links.forEach((linkMatch, index) => {
       const inner = linkMatch[0]
-      const href = /"([^"]*)"/.exec(inner)
+      // href 必须按属性名取。DDG lite 现行标记是 `<a rel="nofollow" href="//duckduckgo.com/l/?uddg=…" class='result-link'>`；
+      // 早前"取标记里第一个双引号串"的写法会取到 rel 值（nofollow），令全部结果被静默丢弃——2026-09-18 经代理活体暴露。
+      const href = /\shref=["']([^"']*)["']/.exec(inner)
       const url = extractRealUrl(href?.[1])
       if (!url) return
       items.push({
@@ -53,6 +55,13 @@ export const ddgLite = {
         extra: {},
       })
     })
-    return { status: 'ok', items: items.slice(0, request.maxResults ?? 10), latencyMs: runtime.now() - started }
+    // 结构漂移显形：检出结果块却一条都提不出来，属"页面结构已变"而非"没有结果"（不得静默）。
+    const drift = links.length > 0 && items.length === 0 ? ['ddg-lite 检出结果块但 URL 提取全失败，页面结构可能已变'] : undefined
+    return {
+      status: 'ok',
+      items: items.slice(0, request.maxResults ?? 10),
+      ...(drift ? { warnings: drift } : {}),
+      latencyMs: runtime.now() - started,
+    }
   },
 }
