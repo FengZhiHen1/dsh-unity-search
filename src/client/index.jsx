@@ -1,13 +1,15 @@
 // index — Client 入口：注册「统一搜索」设置节，装配注入面 { call, scope, credentials }。
 //
 // 边界：注入面平铺，不碰保留键 hooks/keyedHooks（知识库 client/15 红线）；
-// 凭据走官方 ctx.remote.credentials 单向读写（值不回显），Remote 缺席时降级为不可录入态。
+// 凭据走官方 ctx.remote.credentials 单向读写（值不回显），Remote 缺席时降级为不可录入态；
+// 导航图标走 DOM 补丁（外壳未开放 icon 字段，见 `nav-icon.js` 头注）。
 // 参考：docs/technical-details/设置页UI.md「设置节注册」。
 // @ts-check
 
 import { createCall } from './api.js'
 import { createCredentials } from './credentials.js'
 import { UnitySearchSection } from './section.jsx'
+import { SECTION_LABEL, observeSectionNavIcon } from './nav-icon.js'
 
 export const inject = ['slots', 'settingsScope', 'connection', 'remote']
 
@@ -26,14 +28,16 @@ export function apply(ctx) {
           name: 'settings.section',
           id: 'unity-search',
           order: 17,
-          label: '统一搜索',
+          label: SECTION_LABEL,
           inject: () => ({ call, scope, credentials }),
         },
         UnitySearchSection,
       ),
     )
+    const offNavIcon = observeSectionNavIcon()
     return () => {
       offSection()
+      offNavIcon()
     }
   }, 'dsh-unity-search: settings section')
 }

@@ -926,6 +926,40 @@ function moveInOrder(order, id, delta) {
   order.splice(j, 0, ...order.splice(i, 1));
 }
 
+// src/client/nav-icon.js
+var SECTION_LABEL = "\u7EDF\u4E00\u641C\u7D22";
+var SEARCH_ICON_PATHS = [
+  "M11.894845 6.647401C11.894845 3.725463 9.534486 1.356779 6.623219 1.35657C3.711786 1.35657 1.351635 3.725338 1.351635 6.647401C1.351843 9.569296 3.711911 11.938273 6.623219 11.938273C9.534361 11.938064 11.894637 9.569171 11.894845 6.647401ZM13.245462 6.647401C13.245254 10.317935 10.280401 13.293613 6.623219 13.293821C2.965871 13.293821 0.000204 10.31806 0 6.647401C0 2.976574 2.965746 0 6.623219 0C10.280526 0.000205 13.245462 2.9767 13.245462 6.647401Z",
+  "M16.000417 15.041079L15.044449 16.000433L11.530434 12.473588L12.486298 11.514234L16.000417 15.041079Z"
+];
+function patchSectionNavIcon() {
+  for (const label of document.querySelectorAll('span[class*="navLabel"]')) {
+    if (label.textContent?.trim() !== SECTION_LABEL) continue;
+    const cell = label.closest("button");
+    const svg = cell?.querySelector("svg");
+    if (!svg) continue;
+    const first = svg.firstElementChild;
+    if (first && first.tagName === "path" && first.getAttribute("d") === SEARCH_ICON_PATHS[0]) continue;
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("fill", "none");
+    for (const d of SEARCH_ICON_PATHS) {
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", d);
+      path.setAttribute("fill", "currentColor");
+      svg.appendChild(path);
+    }
+  }
+}
+function observeSectionNavIcon() {
+  patchSectionNavIcon();
+  const observer = new MutationObserver((mutations) => {
+    if (mutations.some((m) => m.addedNodes.length > 0)) patchSectionNavIcon();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  return () => observer.disconnect();
+}
+
 // src/client/index.jsx
 var inject = ["slots", "settingsScope", "connection", "remote"];
 function apply(ctx) {
@@ -940,14 +974,16 @@ function apply(ctx) {
           name: "settings.section",
           id: "unity-search",
           order: 17,
-          label: "\u7EDF\u4E00\u641C\u7D22",
+          label: SECTION_LABEL,
           inject: () => ({ call, scope, credentials })
         },
         UnitySearchSection
       )
     );
+    const offNavIcon = observeSectionNavIcon();
     return () => {
       offSection();
+      offNavIcon();
     };
   }, "dsh-unity-search: settings section");
 }
