@@ -96,7 +96,7 @@ test('未路由请求显形（fetch 替身不吞错）', async () => {
   await assert.rejects(() => fetch('https://nowhere.tld/'), /unrouted/)
 })
 
-// ── ddg-lite 解析回归（2026-09-18：本机经代理活体暴露——"取第一个双引号串当 href"取到 rel 值，9 条结果被静默丢弃）──
+// ── ddg-lite 解析回归（2026-09-21：本机经代理活体暴露——"取第一个双引号串当 href"取到 rel 值，9 条结果被静默丢弃）──
 const DDG_LITE_HTML = `<html><body><table>
   <tr><td><a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdeepseek.com%2Fen%2Findex.html&amp;rut=85e378ac" class='result-link'>DeepSeek | Into the Unknown</a></td></tr>
   <tr><td class="result-snippet">DeepSeek official site</td></tr>

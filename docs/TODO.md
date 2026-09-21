@@ -4,6 +4,7 @@
 
 > 2026-09-09 一期实现落地（core 41 文件 + adapter + client + skill + 97 例单测全绿；分层/产物新鲜度/质量地板三门禁通过）。
 > 2026-09-18 test profile（0.1.2-rc.1）直挂实测：**首跑抓出 cordis inject 崩溃**（`ctx.settings` / `ctx.credentials` 属性访问缺 inject ⇒ 整树加载失败、profile 起不来），已修复（事实入《设置凭据与Skill》「服务访问纪律」）；复跑启动干净、Host 半区与设置文档链路双向实证。余项如下。
+> 2026-09-21 续：① 修掉一个只有"源真可达"才会暴露的解析 bug（`ddg-lite` href 提取取到 `rel` 值）；② 把 `NODE_USE_ENV_PROXY=1` 落到 test 实例并做全量 24 条回归——四源恢复、原有源无劣化（详见《源适配器清单与端点契约》「实例级落地与全量回归」节）。
 
 ## 活体回填（首轮 2026-09-09 已完成，余项待净网络/持 key 环境）
 
@@ -13,10 +14,10 @@
 - [x] ~~hn `numericFilters=created_at_i>`~~ → 实证生效（窗内命中）。
 - [x] ~~arxiv submittedDate 子句 / openalex / crossref / pubmed / 链整跑 / read_source（抽取+落盘+SSRF 169.254 拒绝）~~ → 全通过；europepmc 首跑暴露 `resultList.result` 形状错误并修复复跑。
 - [x] ~~github 可达性~~ → 2026-09-18 复测**转可用**（hosts 劫持块已被清除，hosts 现无任何生效映射；3 条命中 666ms）。
-- [ ] 实例级落地（2026-09-18 已在代码级证实）：给 test 实例注入 `NODE_USE_ENV_PROXY=1`（或改用代理 TUN 透明模式）后复跑——**代码级 A/B 已证**该变量让 `ddg` / `wikipedia` / `ddg-lite` 恢复出结果、`v2ex` 可达且解析正常（本次查询真空）。⚠ 该变量作用于**全进程 fetch（含 LLM 调用链路）**，副作用未测须一并回归；注入需重启实例（变更命令要求官方启动器关闭）。
-- [ ] `reddit` 出口问题：经代理仍 404/403（Reddit 拒该出口 IP）——需其他出口或凭据策略，与网络层修复无关。
-- [x] ~~`ddg-lite` 解析回归~~ → 2026-09-18 经代理活体暴露「取第一个双引号串当 href（取到 `rel="nofollow"`）」⇒ 9 条结果静默丢弃（`status: ok, items: 0`）；已修（按属性名取 href + 结构漂移 warning），消融复跑 0 → 3 条，补两条回归用例，单测 97 → 99。**教训**：源长期不可达会掩盖解析层缺陷——可达性恢复后必须做适配器级（而非 curl 标记级）复跑。
-- [ ] ddg / ddg-lite / wikipedia / v2ex / reddit：2026-09-18 复测**仍不可达**（统一 `network/fetch failed`；假 IP 池与首轮同批：`wikipedia→199.16.158.9`（Twitter 段）、`v2ex→199.59.149.205`、`reddit→69.171.235.22`（Facebook 段）、`ddg→74.86.151.162`），searxng 本轮未配实例（`no instances configured`，默认关）。**换净网络或代理 TUN 接管复测**（实现侧参数构造已经出站记录核实，非实现缺陷；明细见《源适配器清单与端点契约》复测节）。
+- [x] ~~实例级落地 `NODE_USE_ENV_PROXY=1`~~ → 2026-09-21 完成：`dshl instances env set test NODE_USE_ENV_PROXY=1` + `instances restart`（在启动器关闭窗口内），重启后启动干净（无崩溃/无未激活行）；**全量 24 条回归：`ddg`/`ddg-lite`/`wikipedia`/`v2ex` 四源恢复，原有可用源无一劣化**；LLM 链路 `api.deepseek.com/v1/models` 在直连/仅 flag/再加 `NODE_EXTRA_CA_CERTS` 三种配置下均 401（链路通）。⚠ 该变量仍作用于全进程 fetch（含 LLM），**流式行为与延迟未测**。
+- [ ] `reddit` 出口问题：实例级落地后仍 `http_4xx`（2026-09-21 复现；Reddit 拒该出口 IP）——需其他出口或凭据策略，与网络层修复无关。
+- [x] ~~`ddg-lite` 解析回归~~ → 2026-09-21 经代理活体暴露「取第一个双引号串当 href（取到 `rel="nofollow"`）」⇒ 9 条结果静默丢弃（`status: ok, items: 0`）；已修（按属性名取 href + 结构漂移 warning），消融复跑 0 → 3 条，补两条回归用例，单测 97 → 99。**教训**：源长期不可达会掩盖解析层缺陷——可达性恢复后必须做适配器级（而非 curl 标记级）复跑。
+- [x] ~~ddg / ddg-lite / wikipedia / v2ex 直连不可达~~ → 2026-09-18 定性为**本机 DNS 假 IP 池**（`wikipedia→199.16.158.9`（Twitter 段）、`v2ex→199.59.149.205`、`reddit→69.171.235.22`（Facebook 段）、`ddg→74.86.151.162`；阿里 DoH 亦返回同池，污染在解析路径上游）；2026-09-21 经 `NODE_USE_ENV_PROXY=1` 实例级修复后**四源全部恢复**（`reddit` 另计，见上条）。
 - [x] ~~tavily / exa / perplexity / deepseek-official~~ → 2026-09-18 经宿主诊断通道复测（`/unity-search/test`，凭据中心在场）：tavily / exa / perplexity 得 `credential not configured`（该 HOME 未录入 key，显式降级符合设计）；**deepseek-official 得 `HTTP 401`（凭据解析出值但被上游拒收；作用域仅限 test 实例 HOME，stable-dev 未测）**。持有效 key 环境仍需复测其成功路径。
 
 ## 实测门禁与部署

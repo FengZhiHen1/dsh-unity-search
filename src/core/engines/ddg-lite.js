@@ -42,7 +42,7 @@ export const ddgLite = {
     links.forEach((linkMatch, index) => {
       const inner = linkMatch[0]
       // href 必须按属性名取。DDG lite 现行标记是 `<a rel="nofollow" href="//duckduckgo.com/l/?uddg=…" class='result-link'>`；
-      // 早前"取标记里第一个双引号串"的写法会取到 rel 值（nofollow），令全部结果被静默丢弃——2026-09-18 经代理活体暴露。
+      // 早前"取标记里第一个双引号串"的写法会取到 rel 值（nofollow），令全部结果被静默丢弃——2026-09-21 经代理活体暴露。
       const href = /\shref=["']([^"']*)["']/.exec(inner)
       const url = extractRealUrl(href?.[1])
       if (!url) return
