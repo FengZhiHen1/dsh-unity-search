@@ -1,14 +1,29 @@
-// settings — settings 命名空间 `unity-search` 注册、entry 配置兜底与凭据取值缓存。
+// settings — 配置边界：Cordis `Config` schema、volatile 引用解包、解析前校验挂点与凭据取值缓存。
 //
-// 边界：schema 与深合并在此，core 只见解析后的快照；凭据经 ctx.credentials 异步解析，
+// 边界：schema 与深合并在此，core 只见解包后的快照；凭据经 ctx.credentials 异步解析，
 // core 的 available() 要求同步取值 ⇒ adapter 维护 ref→value 缓存并预热（缺席服务 = 全 key 引擎不可用）。
-// 参考：docs/technical-details/设置凭据与Skill.md；web-search-deepseek 的 installSection 接线形态。
+//
+// 0.1.7 配置模型（知识库 host/07 §1-§3；本仓库 dsh-skill-manager DSR-025 为同批已验证先例）：
+// 配置真相 = **本行 loader entry 的 Cordis `Config`**。旧注册面整体作废——`settings.yaml` 与
+// settings-file 提供方已删，`ctx.settings.installSection(...)`、其返回的 `SettingsScope`、
+// 浏览器侧 `ctx.settingsScope.bind`、`settings/updated` 在新树**均零命中**（照抄即运行期
+// `TypeError: … is not a function`）。现行四要素：① 插件在 `Config` 里声明全部可配置值；
+// ② 即时字段加 `.volatile()`，消费者**操作时**读 `ref.get()`；③ settings 只枚举并生成表单；
+// ④ 浏览器半区写 `cordis.patch.yml` 经普通 Loader 协调路径应用。
+//
+// ⚠ volatile 摆放硬约束（vendor/schemastery/src/index.ts `validateVolatileSchema`）：**只有叶子
+// 字段**可标 volatile，且不得有 enclosing volatile 字段——`z.object({...}).volatile()` 与
+// `z.array(z.string().volatile())` 在**解析期**抛 `volatile fields require a fixed object path`。
+// 故本文件的每个 `.volatile()` 都落在 `z.object` 的字面字段上，中间的 `chain`/`engines`/`sources`/
+// `readSource` 与引擎/源子对象一律不带 volatile（`isVolatilePath` 会沿 `dict` 递归认这些路径）。
+// 参考：docs/technical-details/设置凭据与Skill.md；官方 web-search-deepseek/src/index.ts 接线形态。
 // @ts-check
 
 import z from '@deepseek-ai/schemastery'
+import { NAMESPACE } from '../core/config-ns.js'
 
-/** settings 命名空间 = 插件名 = seam provider id（命名链条见《项目结构设计》）。 */
-export const NAMESPACE = 'unity-search'
+// 命名空间 = 本插件 loader 行的 id（单一事实源在 core/config-ns.js，Host/Client 两侧共用）。
+export { NAMESPACE }
 
 /** @type {readonly string[]} web 族引擎 id（链成员，不直接进模型工具枚举）。 */
 export const ENGINE_IDS = Object.freeze(/** @type {string[]} */ (['bing', 'ddg', 'ddg-lite', 'anysearch', 'searxng', 'keenable', 'deepseek-official', 'tavily', 'exa', 'perplexity']))
@@ -77,35 +92,58 @@ export function fullDefaults() {
   }
 }
 
-/** 引擎子 schema：enabled + apiKeyEnv 引用（searxng 附加 instances 列表）。 */
-const engineSchema = (/** @type {{ enabled: boolean, apiKeyEnv: string, hasInstances?: boolean }} */ opts) =>
-  z.object({
-    enabled: z.boolean().default(opts.enabled),
-    apiKeyEnv: z.string().default(opts.apiKeyEnv),
-    ...(opts.hasInstances ? { instances: z.array(z.string()).default([]) } : {}),
-  })
+/**
+ * 引擎/源子 schema 字段构造器：**每个叶子标 `.volatile()`**（只有 volatile 字段可写、才出现在设置页）。
+ * 子对象本身**不带** volatile——见文件头「volatile 摆放硬约束」。
+ * 缺省值仍逐项取自 `ENGINE_DEFAULTS` / `SOURCE_DEFAULTS`（并非一律 true：searxng/tavily/exa/perplexity
+ * 默认关闭，keenable/deepseek-official 等带默认 key 引用），与 `fullDefaults()` 保持同源。
+ * @param {boolean} enabled 该引擎/源的默认开关
+ * @param {string} apiKeyEnv 默认凭据引用名（空串 = 无需 key）
+ * @param {boolean} withInstances searxng 专有：实例列表
+ */
+const engineSubSchema = (/** @type {boolean} */ enabled, /** @type {string} */ apiKeyEnv, /** @type {boolean} */ withInstances) => ({
+  enabled: z.boolean().default(enabled).volatile(),
+  apiKeyEnv: z.string().default(apiKeyEnv).volatile(),
+  ...(withInstances ? { instances: z.array(z.string()).default([]).volatile() } : {}),
+})
 
-/** schemastery 校验面（类型层；值完备性由 fullDefaults + mergeConfig 保证）。 */
+/**
+ * 校验面 + 设置页表单面（类型层；值完备性由 fullDefaults + mergeConfig 保证）。
+ *
+ * volatile 覆盖范围 = **设置页真正会写的字段**：链参数、全部引擎与源的开关、
+ * `contact`、readSource 六项。`sources.*.language` **刻意非 volatile**——设置页没有该控件
+ * （按 spec「不做无关改动」），保留它只是不改既有配置形状；标记非 volatile 不改运行期行为
+ * （`resolveConfig` 仍会解析它），代价仅是它不出现在设置表单里、且**不可经设置页写入**。
+ */
 export const Config = z.object({
-  contact: z.string().default(''),
+  contact: z.string().default('').volatile(),
   chain: z.object({
-    order: z.array(z.string()).default([...DEFAULT_ORDER]),
-    cooldownSeconds: z.number().step(1).min(0).max(3600).default(300),
-    timeoutMs: z.number().step(1).min(1000).max(120000).default(15000),
+    order: z.array(z.string()).default([...DEFAULT_ORDER]).volatile(),
+    cooldownSeconds: z.number().step(1).min(0).max(3600).default(300).volatile(),
+    timeoutMs: z.number().step(1).min(1000).max(120000).default(15000).volatile(),
   }).default({}),
-  engines: z.object(Object.fromEntries(Object.entries(ENGINE_DEFAULTS).map(([id, v]) => [id, engineSchema({ enabled: v.enabled, apiKeyEnv: v.apiKeyEnv, hasInstances: id === 'searxng' })]))).default({}),
-  sources: z.object(Object.fromEntries(Object.entries(SOURCE_DEFAULTS).map(([id, v]) => [id, z.object({
-    enabled: z.boolean().default(v.enabled),
-    apiKeyEnv: z.string().default(v.apiKeyEnv),
-    ...(id === 'wikipedia' ? { language: z.string().default('zh') } : {}),
-  })]))).default({}),
+  engines: z.object(Object.fromEntries(
+    Object.entries(ENGINE_DEFAULTS).map(([id, v]) => [
+      id,
+      z.object(engineSubSchema(v.enabled, v.apiKeyEnv, id === 'searxng')).default({}),
+    ]),
+  )).default({}),
+  sources: z.object(Object.fromEntries(
+    Object.entries(SOURCE_DEFAULTS).map(([id, v]) => [
+      id,
+      z.object({
+        ...engineSubSchema(v.enabled, v.apiKeyEnv, false),
+        ...(id === 'wikipedia' ? { language: z.string().default('zh') } : {}),
+      }).default({}),
+    ]),
+  )).default({}),
   readSource: z.object({
-    defaultChars: z.number().step(1).min(1000).max(20000).default(8000),
-    maxChars: z.number().step(1).min(1000).max(20000).default(20000),
-    allowPrivate: z.boolean().default(false),
-    persist: z.boolean().default(true),
-    dir: z.string().default(''),
-    maxTotalMB: z.number().step(1).min(1).max(10240).default(256),
+    defaultChars: z.number().step(1).min(1000).max(20000).default(8000).volatile(),
+    maxChars: z.number().step(1).min(1000).max(20000).default(20000).volatile(),
+    allowPrivate: z.boolean().default(false).volatile(),
+    persist: z.boolean().default(true).volatile(),
+    dir: z.string().default('').volatile(),
+    maxTotalMB: z.number().step(1).min(1).max(10240).default(256).volatile(),
   }).default({}),
 })
 
@@ -174,35 +212,74 @@ export function validateConfig(value) {
 }
 
 /**
- * 装配 settings 消费面：settings 服务就绪时装 section，始终可缺席（回落 entry 配置）。
- *
- * 服务访问纪律（cordis 4.0.2，实测）：本 fiber 的 inject 不含 settings，故 `ctx.settings`
- * 属性访问抛 `cannot get property "settings" without inject`（整个 profile 启动失败）；
- * 动态注入是官方通道——`ctx.inject(['settings'], (settingsCtx) => …)` 起子 fiber，
- * 依赖就绪后才执行回调，回调内 `settingsCtx.settings` 合法（同 `dsh-web-search-deepseek`）。
- * @param {import('@deepseek-ai/cordis').Context} ctx
- * @param {unknown} entryConfig apply 收到的插件 entry 配置
- * @param {() => void} [onChange] 变更回调（热重建消费方）
- * @returns {{ current: () => CoreConfig }}
+ * 配置值是否为 cordis volatile 引用。
+ * 鸭子类型（`typeof value.get === 'function'`）而非 import `Volatile<T>`：该协议以 `Symbol.for`
+ * 为身份，且平台会把「本 schema 之外的普通值」原样交给插件（对象式插件形态、手写行 config、
+ * 裸 node 单测注入的普通对象）——不认这些形态就会把普通值读成 undefined。
+ * 官方同款判据见 `@deepseek-ai/cosmokit` 的 `isVolatile`（`Symbol.for('cosmokit.volatile.write') in value`）。
  */
-export function installSettings(ctx, entryConfig, onChange) {
-  let base = resolveConfig(entryConfig)
-  /** @type {(() => CoreConfig) | null} */
-  let source = null
-  ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.installSection(ctx, NAMESPACE, Config, base, {
-      setSource: (current) => {
-        source = current
-      },
-      onChange: () => {
-        onChange?.()
-      },
-      validate: validateConfig,
-    })
-  })
-  return {
-    current: () => resolveConfig(source ? source() : base),
+const isVolatileRef = (value) => typeof value === 'object' && value !== null && typeof value.get === 'function'
+
+/**
+ * 递归把 loader 解析出的 config 解包成纯数据。
+ *
+ * volatile 字段在运行期是**引用对象**，`ref.get()` 永远答最新值（设置页写入即替换其内部快照，
+ * 不重挂载），故**每次调用现读**：无需 watch、无陈旧快照窗口——这正是旧代 `installSection` 的
+ * `setSource`/`onChange` 回调在新模型下的消失方式。
+ *
+ * 必须**递归**：volatile 是逐叶子标记的（见文件头摆放约束），`chain`/`engines`/`sources`/
+ * `readSource` 这些中间对象仍是普通对象、其内部字段才是引用。只解一层会把 `{ order: ref }`
+ * 这种形状交给 core，而 core 读的是 `cfg.chain.order`（应为数组）。
+ * @param {unknown} value
+ * @returns {unknown} 纯数据快照（volatile 引用取当前值，普通值原样）
+ */
+function unwrapVolatile(value) {
+  if (isVolatileRef(value)) return unwrapVolatile(value.get())
+  if (Array.isArray(value)) return value.map(unwrapVolatile)
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, unwrapVolatile(child)]))
   }
+  return value
+}
+
+/**
+ * 配置只读门面：把 apply 收到的 config 读成完整快照（**每次调用现读**，不缓存）。
+ *
+ * 取代旧 `installSettings` 返回的 `{ current() }`：旧版要经 `ctx.inject(['settings'], …)` 起子
+ * fiber、等 settings 服务就绪后 `installSection` 才拿得到权威值，服务缺席还要回落 entry config；
+ * 新模型的配置真相**就在本行的 `Config` 里**，无需任何服务、不存在"缺席"分支。
+ * @param {unknown} config apply 收到的配置
+ * @returns {{ current: () => CoreConfig }} 语义与旧 `installSettings(...).current` 逐字一致
+ */
+export function createSettings(config) {
+  return { current: () => resolveConfig(unwrapVolatile(config)) }
+}
+
+/**
+ * 注册解析前跨字段校验。
+ *
+ * `internal/config` 是 waterfall：监听器**必须**调用 `next()`，返回值即后续使用的配置
+ * （本层只校验、不改编排，故原样返回）。候选是**原始** config（未经 schema 归一，`!!js` 尚未
+ * 求值）——与设置页写路径的 `config-editor.edit` 走**同一条**瀑布（`fiber.ctx.waterfall(fiber,
+ * 'internal/config', next, …)`），故抛错即让那笔写被拒且**不落盘**。
+ * `this !== ctx.fiber` 表示是别的 fiber 在解析自己的配置，不属本行，直接放行。
+ *
+ * ⚠ **schema 归一发生在本 waterfall 之后**（`_resolveConfig`：先 waterfall 再 `resolveConfig`），
+ * 因此候选里缺省字段尚未填充 ⇒ 校验前先 `resolveConfig` 补齐（与旧代 `installSection` 的
+ * `validate` 作用在已解析值上等价）。
+ *
+ * 抛错的后果（vendor/loader/src/config/entry.ts `_commitVolatile`）：候选被拒、**运行中的引用
+ * 不动**，loader 记一条 warn，原始 config 保留到下次激活。⇒ 运行期校验经此瀑布**永不**让
+ * fiber 失败：`Fiber._reload` 与 `_commitVolatile` 都各自 `try/catch`（前者不上抛、后者只 warn）。
+ * @param {import('@deepseek-ai/cordis').Context} ctx Host 插件上下文
+ */
+export function installConfigValidation(ctx) {
+  ctx.on('internal/config', function (_raw, next) {
+    const candidate = next()
+    if (this !== ctx.fiber) return candidate
+    validateConfig(candidate)
+    return candidate
+  })
 }
 
 /**

@@ -960,11 +960,14 @@ function observeSectionNavIcon() {
   return () => observer.disconnect();
 }
 
+// src/core/config-ns.js
+var NAMESPACE = "unity-search";
+
 // src/client/index.jsx
-var inject = ["slots", "settingsScope", "connection", "remote"];
+var inject = ["slots", "configForms", "connection", "remote"];
 function apply(ctx) {
   const call = createCall(ctx);
-  const scope = ctx.settingsScope.bind({ namespace: "unity-search" });
+  const scope = ctx.configForms.get(NAMESPACE);
   const credentials = createCredentials(ctx);
   ctx.effect(() => {
     const offSection = ctx.slots.inject(

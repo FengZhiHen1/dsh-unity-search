@@ -2,9 +2,15 @@
 
 本文唯一拥有：settings 命名空间 schema、凭据解析链、skill 的载体结构与接线契约、skill 内容大纲与 L3 逃生舱指引。skill 机制事实（注册表分层、rank、消费面、剪枝风险）归本仓库知识库（`agent/23`、`agent/24`），本文只定义本插件的接线。
 
-## settings 命名空间 `unity-search`
+## 配置面（0.1.7 模型：本行 `Config` + volatile）
 
-经 `installSection` 注册（entry config 作 base 层；消费方读合并后值）。用户文档段示例（字段即默认意图，缺省即下列值）：
+**配置真相 = 本插件 loader 条目（`cordis.patch.yml` 的 `id: unity-search`）的 Cordis `Config`**，持久化在该 profile 的 `cordis.patch.yml`。命名空间**就是该条目的 id**（不是包名 `dsh-unity-search`）：Host 侧 `ctx.settings` 的 describe/mutate 按 entry id 寻址，Client 侧 `ctx.configForms.get(entryId)` 取表单——两侧共用 `src/core/config-ns.js` 的 `NAMESPACE` 单一事实源，并由 `test/settings.test.mjs` 直接读 patch 文件钉住它与 `insert` 行 id 一致。
+
+- **可配置字段 = `Config` 里标了 `.volatile()` 的叶子**（`src/adapter/settings.js`）。只有 volatile 字段可经设置页写入，也只有它们出现在设置表单里；非 volatile 字段若被写，Host 抛 `Config field "x" is not volatile`。
+- ⚠ **摆放硬约束**：只有**叶子**可标 volatile，且不得有外层 volatile 字段——`z.object({...}).volatile()`、`z.array(z.string().volatile())` 在**解析期**抛 `volatile fields require a fixed object path without an enclosing volatile field`（`vendor/schemastery/src/index.ts` `validateVolatileSchema`）。故 `chain`/`engines`/`sources`/`readSource` 这些中间对象**不带** volatile，其叶子（`chain.order`、`engines.bing.enabled`、……）才带。
+- **读取**：`apply(ctx, config)` 收到的 volatile 字段是**引用对象**，`ref.get()` 永远答最新值（写入即替换其内部快照、**不重挂载本 fiber**）。`createSettings(config).current()` 递归解包成纯数据快照，**每次调用现读**——无缓存、无陈旧窗口，故 core 侧每次组装 runtime 都能拿到当次最新配置。
+- **写入**：设置页 → `ctx.configForms.get(NAMESPACE).mutate(ops, revision)` → Host `settings.mutate` → `config-editor` 写 profile patch → Loader 的 volatile 提交路径把新值灌进运行中的引用。跨字段非法（`chain.order` 含未知/重复引擎、`readSource` 预算倒挂、searxng 实例非 http(s)）在**落盘前**被 `internal/config` 瀑布拒绝，不落盘、不改运行引用（见下「跨字段校验」）。
+- 用户文档段示例（字段即默认意图，缺省即下列值；`apiKeyEnv` 存**引用名**不存 key）：
 
 ```yaml
 unity-search:
@@ -48,9 +54,13 @@ unity-search:
 ```
 
 - `enabled: false` 的引擎退出兜底链、源退出 fanout 可选集（对齐 modsearch 的 `engines.<name>.enabled` 语义）。
-- 设置变更热生效：`installSection` 的 `onChange` 重建 core 运行时（引擎链顺序、冷却参数、源开关）；冷却状态保留不重置。
+- **设置变更热生效且无需回调**：运行时每次组装（`makeRuntime`）都经 `settings.current()` 现读 volatile 引用，故引擎链顺序、冷却参数、源开关的变更**下一次调用即生效**，冷却状态（adapter 闭包内的 `engineState`）保留不重置。旧代 `installSection` 的 `onChange` 回调在新模型下**没有对应物也不需要**——它当时只做 `credentials.refresh()`，而引用名集合同样在 `refresh()` 内部现读，语义等价。
 - 配置的可视入口为设置节「统一搜索」（机制归「设置页UI」）；原生设置文档编辑始终可用。
-- **服务访问纪律（cordis 4.0.2；2026-09-18 test 实测踩坑）**：本插件 fiber 的 `inject` 不含 `settings` / `credentials`，因此 `ctx.settings` / `ctx.credentials` 这类**属性访问会抛** `cannot get property "X" without inject`；抛出点在 `apply` 内 ⇒ 整棵 plugin tree 加载失败、profile 起不来（实测堆栈落在 `src/adapter/settings.js` 的 `installSection`）。两条合法通道：① 需要**等依赖就绪**的服务走 `ctx.inject([...], (sub) => …)` 动态注入——section 装载用这条，回调内 `sub.settings` 合法（官方 `dsh-web-search-deepseek` 同法）；② **可选/同步取值**走 `ctx.get('name')` 并在**返回对象上**调方法（凭据解析用这条），绝不再写 `ctx.name`。
+- **跨字段校验（取代旧 `installSection` 的 `validate` 选项）**：挂 `ctx.on('internal/config', …)` waterfall（`installConfigValidation`）。候选是**原始** config（`!!js` 未求值、schema 归一尚未发生），故校验前先 `resolveConfig` 补齐缺省——否则一笔只改 `cooldownSeconds` 的写入会因 `chain.order` 缺席而误报。`this !== ctx.fiber` 直接放行（不校验别的 fiber）。抛错 ⇒ 写被拒且不落盘（与设置页写路径走同一条瀑布）；运行期经此瀑布**永不**让 fiber 失败（`Fiber._reload` 与 `_commitVolatile` 各自 try/catch，后者只记 warn）。
+- **`sources.*.language` 刻意非 volatile**：设置页没有该控件，保留它只是不改既有配置形状；代价是该字段不出现在设置表单、且不可经设置页写入（`resolveConfig` 仍照常解析它，运行期行为不变）。
+- **服务访问纪律（保留）**：`ctx.settings` / `ctx.credentials` 这类**属性访问**若未在 `inject` 里声明会抛 `cannot get property "X" without inject`，抛出点在 `apply` 内 ⇒ 整棵 plugin tree 加载失败、profile 起不来（2026-09-18 test 实测踩坑）。合法通道是 `ctx.get('name')` 并在**返回对象上**调方法（凭据解析用这条）。
+  - ⚠ **本插件现在完全不依赖 `ctx.settings`**（配置真相在本行 `Config`，`inject` 无需 `settings`）。旧代那条「用 `ctx.inject(['settings'], …)` 动态注入以装载 section」的通道随 `installSection` 一并作废。
+  - ⚠ 保留 `ctx.get('credentials') != null` 前置判断仅为**行为保全**（不缩小现有触发面），并非必需：`ctx.on` 对未注册的事件名一律合法，不存在 `ctx.get` 那种属性访问抛错。
 
 ## 凭据解析链（追溯 RQ-06）
 

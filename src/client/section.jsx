@@ -1,7 +1,7 @@
 // section — 「统一搜索」设置节：页头 + 四页签（网页引擎/检索源/通用/诊断）。
 //
 // 形态向原生「插件」节学：文本页签 + 底部 dirty 保存条（草稿语义、expectedRevision 防陈旧覆盖）。
-// 数据面：settingsScope（配置草稿与保存）、RPC state（健康投影）、credentials Remote（凭据单向录入）、
+// 数据面：configForms（配置草稿与保存）、RPC state（健康投影）、credentials Remote（凭据单向录入）、
 // RPC test（诊断实跑）。视觉全部 --dsw-alias-* token 内联，不自建视觉身份（知识库 client/15 红线）。
 // 参考：docs/technical-details/设置页UI.md。
 // @ts-check
@@ -59,7 +59,8 @@ const TAB_KEYS = {
 /**
  * 设置节主组件。props 防御：注入面缺成员时降级空态（Client bundle 崩溃 = section 无痕 abdicate）。
  * props = { call, scope, credentials } 注入面（index.jsx 装配）：call 为 RPC 门面
- * （state/test），scope 为 settingsScope.bind 结果，credentials 为凭据门面（describe/set/unset）。
+ * （state/test），scope 为 `ctx.configForms.get(NAMESPACE)` 的 ConfigForm（与旧 SettingsScope
+ * 逐方法对应：getSnapshot/subscribe/mutate，故本组件的读写逻辑不随换代改动），credentials 为凭据门面（describe/set/unset）。
  * 组件对三者做形状防御（缺成员只降级不崩），故不钉死类型以免虚报精确度。
  * @param {Record<string, unknown>} props
  */

@@ -11,7 +11,7 @@ import { createWebChain } from '../core/chain.js'
 import { webEngines } from '../core/engines/index.js'
 import { academicSources } from '../core/academic/index.js'
 import { platformSources } from '../core/platforms/index.js'
-import { Config, installSettings, createCredentialState } from './settings.js'
+import { Config, createSettings, installConfigValidation, createCredentialState } from './settings.js'
 import { registerSeam } from './seam.js'
 import { registerTools } from './tools.js'
 import { registerRpc } from './rpc.js'
@@ -39,7 +39,7 @@ export default {
   Config,
   /**
    * @param {import('@deepseek-ai/cordis').Context} ctx
-   * @param {import('../core/types.js').CoreConfig} config
+   * @param {unknown} config 本行 loader entry 的已解析配置；可配置字段是 volatile 引用（见 adapter/settings.js）
    */
   apply(ctx, config) {
     const logger = {
@@ -47,15 +47,22 @@ export default {
       warn: (/** @type {string} */ msg, /** @type {unknown} */ data) => ctx.logger.warn(`unity-search: ${msg}${data !== undefined ? ` ${safeStringify(data)}` : ''}`),
     }
 
-    // settings：installSection 缺席回落 entry 配置；变更仅触发凭据刷新（配置快照每次调用现读）。
-    /** @type {{ refresh: () => Promise<void> } | null} */
-    let credentials = null
-    const settings = installSettings(ctx, config, () => {
-      if (credentials) void credentials.refresh()
-    })
-    credentials = createCredentialState(ctx, settings)
+    // 配置面（0.1.7 模型）：`Config` 即配置真相，设置页写入经 loader 的 volatile 提交路径
+    // 原地替换引用（不重挂载本 fiber），故无需订阅即可现读最新值。
+    // 跨字段非法（chain.order 含未知/重复引擎、readSource 预算倒挂、searxng 实例 URL）在
+    // **写路径**被 `internal/config` 瀑布拒掉且不落盘——这是旧代 installSection 的 `validate`
+    // 在新模型下的落点，也是"自绘设置页只做形状校验、真校验在 Host"这一分工的实现。
+    installConfigValidation(ctx)
+    const settings = createSettings(config)
+
+    // 凭据取值缓存。**不是** let + 回调赋值了：旧代要把创建推迟到 installSettings 的回调里
+    // 才能闭包引用它，新模型没有那个回调。
+    const credentials = createCredentialState(ctx, settings)
 
     // 凭据中心事件 → 缓存刷新（服务缺席时无事件可订）。ctx.on 返回 disposer 随 fiber 清理。
+    // 配置变更不再挂回调：`settings.current()` 每次调用现读 volatile 引用，本就没有缓存可失效
+    // （旧代 settings 变更回调只做 `credentials.refresh()`，而引用名集合同样在 refresh 内现读
+    //  ——语义等价，故此处**不需要** `loader/volatile-update` 订阅）。
     if (ctx.get('credentials') != null) {
       ctx.effect(() => ctx.on('credentials/reference-updated', () => {
         void credentials.refresh()

@@ -8,7 +8,8 @@
 - 技术基线：定调两份与技术细节五篇已成文，同上待确认。
 - 实现：一期已落地（2026-09-09；core 41 文件 + adapter + client + 捆绑 skill；97 例单测、分层与产物新鲜度门禁全绿）。
 - 实测（2026-09-18，test profile / 0.1.2-rc.1 直挂）：启动干净（无崩溃、无 `N entries did not activate`）；Host 半区经无浏览器通道实证——`/unity-search` 的 `state` 投影 10 引擎 + 13 源、`test` 端点 web 链 5 条真实结果与 arxiv 3 篇命中、未知源 `unknown_source` 降级；设置文档写入/回退双方向读回一致。首跑暴露并已修复 cordis inject 崩溃（事实入技术细节《设置凭据与Skill》「服务访问纪律」）。实录见 `TODO.md`。
-- 未过门禁：模型面两工具与会话内 `web_search` 接管的会话冒烟、设置节页面级冒烟（需真实会话与浏览器）；web profile 挂载未执行。
+- **0.1.7-rc.2 换代适配（2026-09-28，v0.2.0）**：配置模型整体迁移——`Config` + `.volatile()` 取代 `settings.yaml` + `installSection`/`SettingsScope`，Client 读写由 `ctx.settingsScope` 换为 `ctx.configForms`；设置节形态与位置**不变**（`settings.section` 在新基线仍存在，与 skill-manager 的搬家情形不同）。静态闸全绿（分层 42 core 文件、单测 101 → 110、client 产物新鲜度 50.3 KB、真 schemastery 3.18.4 上的判据复刻探针）。决策与全部取证见 `decisions/DSR-007`。⚠ **本版 peer 要求 `^0.1.7-rc.2`，不得挂到更低运行时**（peer 门禁会静默禁用整行）。
+- 未过门禁：**0.1.7-rc.2 换代的实例级实测**（启动冒烟 + 设置节页面级走查 + `/unity-search` 端点复跑 + AC-05 复验）；模型面两工具与会话内 `web_search` 接管的会话冒烟；web profile 挂载未执行（且需 `stable-dev` 先升到 `0.1.7-rc.2`）。
 
 ## 阅读顺序
 
@@ -26,7 +27,7 @@
 | 项目结构设计.md | 模块边界、目录组织、依赖方向、命名约定 |
 | 借鉴地图.md | 外部项目实践 → 设计承接点的索引与借鉴纪律（纯指针） |
 | technical-details/（6 篇） | 机制、契约、失败语义（细分见其 README） |
-| decisions/（DSR-001～006） | 自包含 L0、一期源范围、信封双层、工具预算、设置界面独立标签页、read_source 全量落盘 |
+| decisions/（DSR-001～007） | 自包含 L0、一期源范围、信封双层、工具预算、设置界面独立标签页、read_source 全量落盘、**0.1.7 配置模型迁移** |
 | TODO.md | 待办与未决事项 |
 
 ## 已知偏差与 missing evidence
