@@ -15,7 +15,7 @@
 | `settings/updated` | 0 | 监听永不触发 |
 | `dsh.client.inject` 里的 `@deepseek-ai/dsh-client-runtime` | 包已不存在 | 静默跳过（不炸，但声明失真） |
 
-⚠ **反向教训（本次不必重新发现，但必须记住）**：`dsh-unity-search` 在本仓库 `docs/upgrades/0003` §2.6 曾被记为「`ctx.settings.*` 用法 **0 处** ✅ 不受影响」。那是**假阴性**——扫描写死了 `ctx.settings.` 字面量，漏掉了经 `ctx.inject` 回调改名后的 `settingsCtx.settings.`。**peer 门禁也会 PASS**（4 项 peer 全满足），而代码真实调用已删 API。⇒ 判适配只能看代码面，门禁测不出。
+⚠ **反向教训（本次不必重新发现，但必须记住）**：`dsh-unity-search` 在本仓库 `docs/upgrades/0003`（**2026-09-28 起由单文件改为目录**；该段现位于其 `09-附录-取证与预演.md` §D）曾被记为「`ctx.settings.*` 用法 **0 处** ✅ 不受影响」。那是**假阴性**——扫描写死了 `ctx.settings.` 字面量，漏掉了经 `ctx.inject` 回调改名后的 `settingsCtx.settings.`。**peer 门禁也会 PASS**（4 项 peer 全满足），而代码真实调用已删 API。⇒ 判适配只能看代码面，门禁测不出。
 
 ## 与 dsh-skill-manager 的关键差异（决定了本次动作面）
 
