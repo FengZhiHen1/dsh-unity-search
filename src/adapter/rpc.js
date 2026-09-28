@@ -24,10 +24,21 @@ const TEST_BUDGET_MS = 30_000
 
 /**
  * 构造 dispatch 并注册通道。
- * ⚠ `ctx` 必须是**已声明 webServer 的 ctx**（插件在 `ctx.inject(['webServer'], …)` 回调里传入）：
- * 平台把 owner 绑成读该服务的 ctx，注册末端要触达 `owner.webServer`，否则抛
- * `cannot get property "webServer" without inject`（DSR-028）。
- * @param {import('@deepseek-ai/cordis').Context} ctx 已注入 webServer 的上下文
+ * ⛔⛔ 本函数当前写法已失效（2026-09-28 二次实证），**必须改造** —— 保留下方说明仅作待改点标记。
+ *   现状 `ctx.connection.rpc.handle(CHANNEL, dispatch)` 在**生产 web 组合下注册不上任何自定义通道**：
+ *   失败点在 **connection 服务自己的 ctx** 上（rpc-host.ts:87 `get rpc() { const owner = this.ctx }`，
+ *   :192 `owner.effect(() => owner.webServer.register(route))`），而 `webserver` 行与 `connection`
+ *   行是**顶层兄弟行**，cordis 服务解析只沿祖先链上溯 ⇒ 必抛
+ *   `cannot get property "webServer" without inject`；该异常在匿名子 fiber 内、**启动期不外显**
+ *   ⇒ 行仍 `active`，浏览器一律 405。
+ *   ⇒ 原判断「必须传入已注入 webServer 的 ctx（DSR-028）」**已被推翻**：改调用方 inject
+ *     （动态或静态）都无效，这已是消融结论。
+ *   正解见 → 仓库级 docs/decisions/0002-自定义RPC通道改用精确Fetch路由.md
+ *     首选：ctx.connection.fetch.register({ path: '/api/unity-search/<endpoint>', methods:['POST'],
+ *           requestBody:'buffered', fetch }) —— registerFetchRoute 不读 owner.webServer，
+ *           且由 connection 自己正确挂载的 /api 承载 ⇒ 免费继承围栏(403)/认证(401)/waterfall/体积上限(413)。
+ *     客户端配套：rpc.call('/api', 'unity-search/<endpoint>', payload, signal)。
+ * @param {import('@deepseek-ai/cordis').Context} ctx
  * @param {RpcDeps} deps
  * @returns {void}
  */

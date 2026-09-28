@@ -70,7 +70,7 @@ ctx.slots.inject('settings.section', () =>
 
 ## RPC 通道契约
 
-Host 侧 `ctx.connection.rpc.handle('/unity-search', dispatch)`（继承 loopback/认证围栏，知识库 `client/17` §4）；Client 侧 `createCall` 归一错误（skill-manager `api.js` 同构：`{ok:true,value}` 取值、`{ok:false,error}` 转 `RpcError`，transport 失败 `code: 'transport'`）。入站载荷经 core 校验函数显式拒绝脏形状（`contract-violation`）。
+Host 侧当前装配为 `ctx.connection.rpc.handle('/unity-search', dispatch)`（原以为继承 loopback/认证围栏，知识库 `client/17` §4）。⛔ **该写法已失效**（2026-09-28 实证）：生产 web 组合下注册不上任何自定义通道（失败点在 connection 服务自己的 ctx 上，而 `webserver` 与 `connection` 是顶层兄弟行），表现为行 `active` 但浏览器一律 405。**待改为** `/api` 精确 Fetch 路由（`ctx.connection.fetch.register({ path: '/api/unity-search/<endpoint>', methods: ['POST'], requestBody: 'buffered', fetch })`，免费继承平台围栏 403/认证 401/`connection/request` waterfall/体积上限 413），客户端配套 `rpc.call('/api', 'unity-search/<endpoint>', payload, signal)`；详见仓库级 `docs/decisions/0002-自定义RPC通道改用精确Fetch路由.md`。Client 侧 `createCall` 归一错误不变（skill-manager `api.js` 同构：`{ok:true,value}` 取值、`{ok:false,error}` 转 `RpcError`，transport 失败 `code: 'transport'`）。入站载荷经 core 校验函数显式拒绝脏形状（`contract-violation`）。
 
 | 端点 | 载荷 | 返回 | 超时 |
 | --- | --- | --- | --- |

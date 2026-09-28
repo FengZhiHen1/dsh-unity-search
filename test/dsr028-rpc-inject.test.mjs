@@ -1,3 +1,22 @@
+// ⛔⛔ 本文件是**盲闸**，其结论已被推翻（2026-09-28 二次实证）——保留作方法教训留档。
+//
+// 为什么它是盲闸：本文件的假 ctx 在 `inject()` 里**直接给出了可用的
+//   `connection.rpc.handle`**（由假件自己完成注册），于是被测代码的**真实失败点
+//   `owner.webServer` 从未被触达** ⇒ 无论生产是否可用，本闸恒绿。
+// **教训：假件的桩必须落在被测代码的失败点之外。**
+//
+// 真因：失败发生在 **connection 服务自己的 ctx** 上（`rpc-host.ts:87`
+//   `get rpc() { const owner = this.ctx }`），而 `webserver` 行与 `connection` 行是
+//   **顶层兄弟行** ⇒ `owner.webServer` 永远解析不到。改**调用方**的 inject（动态或静态）
+//   都无效（消融：两种写法均 ❌）。且当时的「修复」把**响亮失败**（行挂载失败 + 日志）
+//   变成了**静默 405**（行 `active`、无日志）——**可观测性倒退**。
+//
+// 正解见仓库级 docs/decisions/0002-自定义RPC通道改用精确Fetch路由.md：
+//   首选 `ctx.connection.fetch.register({ path: '/api/unity-search/<endpoint>', … })`。
+//   **新的回归闸必须用真实部署类** `HostConnectionService` + 部署版 cordis，
+//   并以 connection 自身 `/api` 注册为**保真对照**（对照失败则整场实验作废）。
+//
+// ---- 以下为原文（结论已失效，仅存档）----
 // DSR-028 回归：RPC 必须在 `ctx.inject(['webServer'], …)` 回调里、用**回调给的 ctx** 注册。
 //
 // 生产实测（0.1.7-rc.2，2026-09-28）：test 实例启动后本插件行挂载失败并报
@@ -71,7 +90,7 @@ function fakeCtx(home) {
   return ctx
 }
 
-test('DSR-028：RPC 走动态注入注册；直接调或误用外层 ctx 都会撞 webServer 守卫', async (t) => {
+test('DSR-028（⛔ 已失效，见文件头）：RPC 走动态注入注册；直接调或误用外层 ctx 都会撞 webServer 守卫', async (t) => {
   const home = await mkTmp()
   t.after(() => cleanup(home))
 
