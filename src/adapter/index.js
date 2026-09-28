@@ -106,7 +106,20 @@ export default {
 
     registerSeam(ctx, { chain, makeRuntime: (signal) => makeRuntime(signal ?? IDLE) })
     registerTools(ctx, { registry, chain, makeRuntime })
-    registerRpc(ctx, { registry: diagRegistry, chain, settings, makeRuntime, resolveCredential: (ref) => credentials.resolve(ref) })
+    // ⚠ RPC 必须在 `ctx.inject(['webServer'], …)` 回调里、用**回调给的 ctx** 注册（DSR-028）。
+    // 生产实测（0.1.7-rc.2，2026-09-28）：直接在 apply 里 `ctx.connection.rpc.handle()` 抛
+    //   `cannot get property "webServer" without inject`
+    // 成因是平台把 owner 绑成**读该服务的 ctx**（connection/lib/index.js:573 `const owner = this.ctx`），
+    // 注册末端执行 `owner.effect(() => owner.webServer.register(route))`（同文件 :656）
+    // ⇒ 必须触达 `owner.webServer`，而 cordis 只在读该 ctx 的 inject 声明内放行
+    // （vendor/cordis/src/reflect.ts:140 的 `Reflect.has(target, prop)` 是守卫入口）。
+    // 两个易错点：① 不能在 apply 里直接调；② 回调里要用 `webCtx` 而非外层 `ctx`。
+    // 用动态注入而非静态 `inject: [..., 'webServer']`：webServer 由 profile 的 web bundle 提供
+    // （@deepseek-ai/dsh-web-app 的 webserver 行），静态声明会在不含该行的 profile 上让本插件
+    // 永远 PENDING（DSR-027 那类启动挂死）；动态注入只是不注册 RPC，插件仍可挂载。
+    ctx.inject(['webServer'], (webCtx) => {
+      registerRpc(webCtx, { registry: diagRegistry, chain, settings, makeRuntime, resolveCredential: (ref) => credentials.resolve(ref) })
+    })
     registerSkill(ctx)
   },
 }

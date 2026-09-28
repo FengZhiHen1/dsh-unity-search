@@ -24,7 +24,10 @@ const TEST_BUDGET_MS = 30_000
 
 /**
  * 构造 dispatch 并注册通道。
- * @param {import('@deepseek-ai/cordis').Context} ctx
+ * ⚠ `ctx` 必须是**已声明 webServer 的 ctx**（插件在 `ctx.inject(['webServer'], …)` 回调里传入）：
+ * 平台把 owner 绑成读该服务的 ctx，注册末端要触达 `owner.webServer`，否则抛
+ * `cannot get property "webServer" without inject`（DSR-028）。
+ * @param {import('@deepseek-ai/cordis').Context} ctx 已注入 webServer 的上下文
  * @param {RpcDeps} deps
  * @returns {void}
  */
