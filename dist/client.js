@@ -27,8 +27,11 @@ __export(index_exports, {
 });
 module.exports = __toCommonJS(index_exports);
 
+// src/adapter/rpc-channel.js
+var API_CHANNEL = "/api";
+var RPC_NAMESPACE = "unity-search";
+
 // src/client/api.js
-var CHANNEL = "/unity-search";
 var STATE_TIMEOUT_MS = 15e3;
 var TEST_TIMEOUT_MS = 35e3;
 var RpcError = class extends Error {
@@ -53,7 +56,7 @@ function createCall(ctx) {
     const timer = setTimeout(() => controller.abort(), budgetMs);
     let result;
     try {
-      result = await ctx.connection.rpc.call(CHANNEL, endpoint, payload, controller.signal);
+      result = await ctx.connection.rpc.call(API_CHANNEL, `${RPC_NAMESPACE}/${endpoint}`, payload, controller.signal);
     } catch (error) {
       const aborted = Boolean(error && (error.name === "AbortError" || error.name === "TimeoutError"));
       throw new RpcError(

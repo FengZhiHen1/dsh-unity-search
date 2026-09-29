@@ -106,21 +106,11 @@ export default {
 
     registerSeam(ctx, { chain, makeRuntime: (signal) => makeRuntime(signal ?? IDLE) })
     registerTools(ctx, { registry, chain, makeRuntime })
-    // ⛔⛔ 下面这段写法已被推翻（2026-09-28 二次实证），**必须改造** —— 留此仅为标记待改点。
-    //   现状：`webCtx.connection.rpc.handle(...)` 在**生产 web 组合下注册不上任何自定义通道**：
-    //   失败点在 **connection 服务自己的 ctx** 上（rpc-host.ts:87 `get rpc() { const owner = this.ctx }`，
-    //   :192 `owner.effect(() => owner.webServer.register(route))`），而 `webserver` 行与 `connection`
-    //   行是**顶层兄弟行**，cordis 服务解析只沿祖先链上溯 ⇒ 必抛 `cannot get property "webServer"
-    //   without inject`。该异常发生在匿名子 fiber 内、**启动期不外显** ⇒ 行仍 `active`，浏览器一律 405。
-    //   ⇒ 改**调用方**的 inject（动态注入或静态声明）都无效，这已是消融结论。
-    //   正解见 → 仓库级 docs/decisions/0002-自定义RPC通道改用精确Fetch路由.md
-    //     首选：ctx.connection.fetch.register({ path: '/api/unity-search/<endpoint>', methods:['POST'],
-    //           requestBody:'buffered', fetch }) —— registerFetchRoute 不读 owner.webServer，
-    //           且由 connection 自己正确挂载的 /api 承载 ⇒ 免费继承围栏(403)/认证(401)/waterfall/体积上限(413)。
-    //     客户端配套：rpc.call('/api', 'unity-search/<endpoint>', payload, signal)。
-    ctx.inject(['webServer'], (webCtx) => {
-      registerRpc(webCtx, { registry: diagRegistry, chain, settings, makeRuntime, resolveCredential: (ref) => credentials.resolve(ref) })
-    })
+    // RPC 通道：自定义能力挂在 `/api/unity-search/<endpoint>` 的**精确 Fetch 路由**上。
+    // 不再需要 `ctx.inject(['webServer'], …)` 包一层——`connection.fetch.register` 不读
+    // `owner.webServer`，且由 connection 自己正确挂载的 `/api` 承载 ⇒ 免费继承安全语义。
+    // 详见 docs/decisions/0002-自定义RPC通道改用精确Fetch路由.md 与 src/adapter/rpc-channel.js。
+    registerRpc(ctx, { registry: diagRegistry, chain, settings, makeRuntime, resolveCredential: (ref) => credentials.resolve(ref) })
     registerSkill(ctx)
   },
 }

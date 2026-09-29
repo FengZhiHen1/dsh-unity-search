@@ -1,10 +1,19 @@
-// api — Client→Host 传输门面：`/unity-search` 通道调用与错误/形状归一（skill-manager api.js 同构）。
+// api — Client→Host 传输门面：调用与错误/形状归一（skill-manager api.js 同构）。
 //
+// 承载：自定义能力挂在 `/api/unity-search/<endpoint>`（平台共享前缀 + 本插件命名空间），
+// 通道名恒为 `/api`——这是 `assertFetchRoute` 要求路径落在 `/api` 之下的直接结果。
 // 边界：本层只管超时、Result 信封拆解与 state 载荷的防御性收窄；调度语义全在 Host。
 // 渲染层只认归一后的形状与 RpcError——投影字段漂移不会让设置节崩溃。
 // @ts-check
 
-/** RPC 通道名（Host 侧 rpc.js 用同名）。 */
+import { API_CHANNEL, RPC_NAMESPACE } from '../adapter/rpc-channel.js'
+
+/**
+ * RPC 通道名（**已废弃**）。旧值 `/unity-search` 是自定义 channel，靠 Host 侧
+ * `connection.rpc.handle` 注册；该 API 在生产 web 组合下注册不上（⇒ 405），已改用
+ * `/api` 精确 Fetch 路由。保留仅为兼容历史引用；**新代码请用 `API_CHANNEL`**。
+ * @deprecated
+ */
 export const CHANNEL = '/unity-search'
 
 /** 超时两档：state 15s（对齐文档契约）、test 35s（Host 预算 30s + 传输余量）。 */
@@ -45,7 +54,7 @@ export function createCall(ctx) { // quality-floor: ignore docstring-promise thr
     const timer = setTimeout(() => controller.abort(), budgetMs)
     let result
     try {
-      result = await ctx.connection.rpc.call(CHANNEL, endpoint, payload, controller.signal)
+      result = await ctx.connection.rpc.call(API_CHANNEL, `${RPC_NAMESPACE}/${endpoint}`, payload, controller.signal)
     } catch (error) {
       const aborted = Boolean(error && (error.name === 'AbortError' || error.name === 'TimeoutError'))
       throw new RpcError(
