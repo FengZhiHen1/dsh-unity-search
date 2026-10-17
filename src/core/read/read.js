@@ -11,6 +11,12 @@ import { artifactFileName, writeArtifact } from './artifact.js'
 const MAX_REDIRECT_HOPS = 5
 /** 二进制内容判定：NUL 字符占比阈值（UTF-8 文本正文中正常为 0）。 */
 const NUL_RATIO_BINARY = 0.005
+/** 跳转壳特征：正文极短且含 JS/meta 跳转提示——典型中转页，不是目标内容。 */
+const REDIRECT_SHELL_PATTERN = /redirect automatically|window\.location|location\.href|location\.replace|http-equiv=["']?refresh/i
+/** 跳转壳的正文长度上界（真实文章抽取后的正文远长于此）。 */
+const REDIRECT_SHELL_MAX_CHARS = 200
+/** 跳转壳特征扫描的响应体前缀长度（脚本/meta 均在文档头）。 */
+const REDIRECT_SHELL_SCAN_BYTES = 8192
 
 /**
  * @typedef {Object} ReadRequest
@@ -163,6 +169,9 @@ export async function readSource(request, { runtime }) {
       artifactKind = 'raw'
       rawFallback = true
       warnings.push('HTML 抽取失败，正文为空；原始响应体已按 raw 落盘')
+    } else if (text.length <= REDIRECT_SHELL_MAX_CHARS && REDIRECT_SHELL_PATTERN.test(body.slice(0, REDIRECT_SHELL_SCAN_BYTES))) {
+      // 跳转壳：抓到的不是目标内容。显形而非当作成功正文（引擎包装 URL 的典型症状）。
+      warnings.push('正文疑似跳转壳（中转页）而非目标内容；请改用真实目标 URL 再读')
     }
   } else {
     text = body

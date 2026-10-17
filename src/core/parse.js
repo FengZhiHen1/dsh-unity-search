@@ -82,14 +82,16 @@ export function cleanSnippet(snippet, maxLength = 300) {
 }
 
 /**
- * 从 `<a>` 类标签的 href 提取真实 URL：
- * 处理协议相对（`//host`）与跳转包装（`/l?u=<encoded>`、`uddg=`）形态；失败返回 null。
+ * 从 `<a>` 类标签的 href 提取真实 URL：剥实体、补协议相对（`//host`）、解开引擎跳转包装
+ * （`/l?u=<encoded>`、`uddg=`、Bing 的 `ck/a?u=a1<base64url>`）；失败返回 null。
+ * 包装未解开时返回包装本身（不丢条目），由调用方决定可用性。
  * @param {string | undefined | null} href
  * @returns {string | null}
  */
 export function extractRealUrl(href) {
   if (typeof href !== 'string' || href.trim().length === 0) return null
-  let url = href.trim()
+  // 实体必须先解：`&amp;u=a1…` 若不解，URLSearchParams 会把参数名读成 `amp;u`。
+  let url = decodeEntities(href).trim()
   if (url.startsWith('//')) url = `https:${url}`
   if (url.startsWith('/')) {
     // 引擎跳转包装：常见形态 /l/...?u=<encoded> 或 ?uddg=<encoded>
@@ -101,16 +103,118 @@ export function extractRealUrl(href) {
       return null
     }
   }
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    // DuckDuckGo 风格的 uddg 包装参数（绝对 URL 上）。
-    try {
-      const parsed = new URL(url)
-      const uddg = parsed.searchParams.get('uddg')
-      if (uddg) url = uddg
-    } catch { // quality-floor: ignore silent-catch URL 解析失败保持原值返回：调用方拿到未解包装的 URL 仍可比对，属显式降级非吞错
-      // 保持原值。
-    }
+  if (!/^https?:\/\//.test(url)) return null
+  return unwrapRedirector(url)
+}
+
+/**
+ * 解开已知跳转包装的绝对 URL。无法解开时原样返回。
+ * @param {string} url
+ * @returns {string}
+ */
+function unwrapRedirector(url) {
+  /** @type {URL} */
+  let parsed
+  try {
+    parsed = new URL(url)
+  } catch {
     return url
   }
-  return null
+  // Bing 搜索结果锚点：真实目标只在 u=a1<base64url> 里；直接请求 /ck/a 包装实测返回空跳转壳。
+  const wrapped = parsed.searchParams.get('u')
+  if (typeof wrapped === 'string' && wrapped.startsWith('a1')) {
+    const decoded = decodeBase64Url(wrapped.slice(2))
+    if (decoded && /^https?:\/\//.test(decoded)) return decoded
+  }
+  // DuckDuckGo 形态（绝对 URL 上的 uddg 参数）。
+  const uddg = parsed.searchParams.get('uddg')
+  if (typeof uddg === 'string' && /^https?:\/\//.test(uddg)) return uddg
+  return url
+}
+
+/**
+ * base64url 解码为 UTF-8 文本；非法输入返回 null。
+ * @param {string} text
+ * @returns {string | null}
+ */
+function decodeBase64Url(text) {
+  const normalized = text.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
+  try {
+    const decoded = Buffer.from(padded, 'base64').toString('utf8')
+    // Buffer 对非法字符是宽松丢弃而非抛错：回读校验以拦住"解出一半"的伪造包装。
+    const reencoded = Buffer.from(decoded, 'utf8').toString('base64').replace(/=+$/, '')
+    return reencoded === normalized.replace(/=+$/, '') ? decoded : null
+  } catch {
+    return null
+  }
+}
+
+/** 查询词覆盖评判的停用词（英文功能词与中文疑问词）。只为"结果是否跑题"服务，不参与排序。 */
+const QUERY_STOPWORDS = new Set([
+  'the', 'and', 'for', 'with', 'what', 'how', 'why', 'which', 'who', 'when', 'where',
+  'does', 'can', 'are', 'was', 'were', 'you', 'your', 'from', 'that', 'this', 'into',
+  '什么', '怎么', '如何', '为什么', '哪些', '多少', '是什么',
+])
+
+/**
+ * 查询词覆盖率：把查询切成若干"词位组"，统计多少组在给定文本里出现过。
+ * 用途是识别上游软降级（HTTP 200 但结果忽略查询词），不是相关性打分：
+ * 拉丁词按子串匹配（天然覆盖单复数），中文按相邻二字切片任一片命中即算覆盖。
+ * @param {string} query 原始查询。
+ * @param {string[]} texts 待检文本（各条目的标题与摘要）。
+ * @returns {{ total: number, covered: number, ratio: number, missing: string[] }} 词位组总数、覆盖数、覆盖率与未覆盖组的代表词。
+ */
+export function queryTermCoverage(query, texts) {
+  const haystack = texts.join('\n').toLowerCase()
+  const groups = queryTermGroups(query)
+  /** @type {string[]} */
+  const missing = []
+  let covered = 0
+  for (const group of groups) {
+    if (group.some((term) => haystack.includes(term))) covered++
+    else missing.push(group[0])
+  }
+  const total = groups.length
+  return { total, covered, ratio: total === 0 ? 1 : covered / total, missing }
+}
+
+/**
+ * 查询 → 词位组。每组是若干等价写法，任一处出现即算该组被覆盖。
+ * @param {string} query
+ * @returns {string[][]}
+ */
+function queryTermGroups(query) {
+  const text = String(query ?? '').toLowerCase()
+  /** @type {string[][]} */
+  const groups = []
+  const seen = new Set()
+  /** @param {string[]} group */
+  const push = (group) => {
+    const unique = [...new Set(group.filter((term) => term.length >= 2))]
+    if (unique.length === 0) return
+    const key = unique.join('|')
+    if (seen.has(key)) return
+    seen.add(key)
+    groups.push(unique)
+  }
+  for (const match of text.matchAll(/[a-z0-9][a-z0-9.+#_-]*/g)) {
+    const raw = match[0].replace(/[.+#_-]+$/, '')
+    if (raw.length < 3 && !/^\d{2,}$/.test(raw)) continue
+    if (QUERY_STOPWORDS.has(raw)) continue
+    // 带分隔符的复合词额外提供首段（node.js → node），避免结果只写主名时被误判跑题。
+    push([raw, raw.split(/[.+#_-]/)[0]])
+  }
+  for (const match of text.matchAll(/[\u4e00-\u9fff]+/g)) {
+    const run = match[0]
+    if (run.length <= 2) {
+      push([run])
+      continue
+    }
+    /** @type {string[]} */
+    const bigrams = []
+    for (let i = 0; i + 2 <= run.length; i++) bigrams.push(run.slice(i, i + 2))
+    push(bigrams)
+  }
+  return groups
 }

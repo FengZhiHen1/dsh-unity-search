@@ -129,6 +129,9 @@ export async function httpRequest(runtime, url, options = {}) {
   /** @type {() => void} */
   const onOuterAbort = () => controller.abort(runtime.signal.reason ?? new Error('aborted'))
   runtime.signal.addEventListener('abort', onOuterAbort, { once: true })
+  // 会话 cookie：注入即在发出前拼装（调用方显式给的 cookie 头优先），收到响应即收下新 cookie。
+  const jar = runtime.cookies
+  const cookie = jar ? jar.header(parsed.hostname, parsed.protocol) : null
   try {
     /** @type {Response} */
     let response
@@ -138,7 +141,7 @@ export async function httpRequest(runtime, url, options = {}) {
         body,
         redirect,
         signal: controller.signal,
-        headers: { 'user-agent': USER_AGENT, ...headers },
+        headers: { 'user-agent': USER_AGENT, ...(cookie ? { cookie } : {}), ...headers },
       })
     } catch (error) {
       if (runtime.signal.aborted) {
@@ -149,6 +152,8 @@ export async function httpRequest(runtime, url, options = {}) {
       }
       return { ok: false, error: { code: 'network', message: `fetch failed: ${String(error && error.message ? error.message : error)}` } }
     }
+    // 头一到就收 cookie：即使后续 body 读取失败/超界，会话状态也已建立。
+    jar?.absorb(parsed.hostname, response)
     if (!response.ok) {
       // 丢弃未读 body（防连接挂起），但先尝试短错误信息。
       void response.body?.cancel().catch(() => {}) // quality-floor: ignore silent-catch body 丢弃失败无关结果分类，错误已由 status 通道呈现

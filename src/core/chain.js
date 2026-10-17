@@ -83,6 +83,9 @@ export function createWebChain({ engines, state }) {
       let winner = null
       /** @type {import('./types.js').SourceOutcome | null} */
       let firstEmpty = null
+      // 软降级结果：有内容但自陈不可信（如上游按未知客户端出泛化结果）。留作兜底，先让后续引擎试。
+      /** @type {{ engine: import('./types.js').SourceAdapter, outcome: import('./types.js').SourceOutcome } | null} */
+      let degradedFallback = null
 
       for (const engine of orderedEngines(runtime)) {
         const st = stateOf(engine.id)
@@ -128,6 +131,15 @@ export function createWebChain({ engines, state }) {
           if (!firstEmpty) firstEmpty = outcome
           continue
         }
+        if (outcome.degraded) {
+          // 软降级不冷却（上游没坏，是本次结果集不可信）：记 ok-degraded 后继续兜底。
+          st.lastOutcome = { outcome: 'ok', at: runtime.now() }
+          tried.push({ id: engine.id, outcome: 'ok-degraded', code: 'degraded' })
+          attempts.push({ source: `web:${engine.id}`, outcome: 'degraded', latencyMs })
+          warnings.push(`引擎 ${engine.id} 结果疑似上游降级（${outcome.degraded.reason}），继续尝试后续引擎`)
+          if (!degradedFallback) degradedFallback = { engine, outcome }
+          continue
+        }
         st.lastOutcome = { outcome: 'ok', at: runtime.now() }
         tried.push({ id: engine.id, outcome: 'ok' })
         attempts.push({ source: `web:${engine.id}`, outcome: 'ok', latencyMs })
@@ -143,6 +155,11 @@ export function createWebChain({ engines, state }) {
           warnings.push(`胜出引擎 ${winner.engine.id} 不支持 timeRange，已忽略`)
         }
         return { outcome: winner.outcome, info, attempts, warnings }
+      }
+      if (degradedFallback) {
+        // 没有任何引擎给出可信结果：降级结果仍胜过空手而归，但必须在 warnings 里显形。
+        warnings.push(`仅 ${degradedFallback.engine.id} 返回结果且自陈不可信，已按降级结果返回`)
+        return { outcome: degradedFallback.outcome, info, attempts, warnings }
       }
       if (firstEmpty) {
         // 有引擎成功返回但全为空：空结果不算失败 → web 源 ok（0 条）。

@@ -6,6 +6,7 @@
 > 2026-09-18 test profile（0.1.2-rc.1）直挂实测：**首跑抓出 cordis inject 崩溃**（`ctx.settings` / `ctx.credentials` 属性访问缺 inject ⇒ 整树加载失败、profile 起不来），已修复（事实入《设置凭据与Skill》「服务访问纪律」）；复跑启动干净、Host 半区与设置文档链路双向实证。余项如下。
 > 2026-09-21 续：① 修掉一个只有"源真可达"才会暴露的解析 bug（`ddg-lite` href 提取取到 `rel` 值）；② 把 `NODE_USE_ENV_PROXY=1` 落到 test 实例并做全量 24 条回归——四源恢复、原有源无劣化（详见《源适配器清单与端点契约》「实例级落地与全量回归」节）；③ 首轮会话冒烟（AC-01/02/03/04/09 通过）暴露并修复 AC-05 的 skill 面 bug（`readFile` 缺 encoding ⇒ Buffer ⇒ provider 被跳过），补 adapter 层首个回归用例。
 > 2026-09-28 **0.1.7-rc.2 换代适配**（配置模型迁移，详见 `decisions/DSR-007`）：`Config` + `.volatile()` 取代 `settings.yaml` + `installSection`；Client 侧 `ctx.settingsScope` → `ctx.configForms`。静态闸全绿（分层 42 core 文件、单测 **101 → 110**、client 产物新鲜度、真 schemastery 上的判据复刻探针）。⚠ **实例级实测未做**，且本版**不得挂到 0.1.7-rc.2 以下的运行时**（peer 门禁会静默禁用整行）。
+> 2026-10-17 **bing 结果可用性修复**（`ck/a` 包装解包 + 会话 cookie 罐 + 软降级自陈，事实与证据入《源适配器清单与端点契约》「bing 结果可用性修复」与《检索核心与信封契约》「会话与请求指纹」）：活体复跑包装 URL 0 条、原先退化的两个查询恢复精确命中、`read_source` 由 54 字符跳转壳变 2106/3401 字符正文；单测 **110 → 131** 全绿，`pnpm run check` 三门禁通过。⚠ **实例内未验**（见下「实测门禁与部署」）。
 
 ## 活体回填（首轮 2026-09-09 已完成，余项待净网络/持 key 环境）
 
@@ -30,6 +31,7 @@
 - [x] ~~GitHub 远程仓库创建与 submodule 接线（`FengZhiHen1/dsh-unity-search`）~~ → 2026-09-18 建 public 仓库 + 子仓 push + 补 origin + 顶层 gitlink 提交。
 - [ ] **0.1.7-rc.2 换代的实例级实测（发布前置门禁，DSR-007 未验项）**：需用户把本插件挂进 `test` 实例（运行时已是 `0.1.7-rc.2`）并重启，随后做——① 启动无 `N entries did not activate` / 无 `disabling profile plugin`；② `/unity-search` 的 `state`/`test` 端点复跑（Host 半区仍通）；③ 设置节页面级冒烟（配置表单出现、链序与 searxng 实例等数组控件读写、保存落 profile `cordis.patch.yml` 而非 `settings.yaml`）；④ `skill("unity-search")` 复验（AC-05）。**未过此门禁不得更新 `stable-dev` 的挂载。**
 - [ ] web profile 挂载（DSR-001 后果）：先移除同 seam 的 `dsh-free-search`，再 `dsh plugin --profile web add github:FengZhiHen1/dsh-unity-search`；**须用户明确指令**（涉运行中的 stable-dev 实例重启，会打断会话）。⚠ **前置条件已改变**：本版 peer 要求 `^0.1.7-rc.2`，而 `stable-dev` 运行时仍 `0.1.2-rc.1` ⇒ **必须先把该实例升到 `0.1.7-rc.2`**，否则挂载即被 peer 门禁静默禁用。
+- [ ] **2026-10-17 bing 修复的实例内验证**（代码层已验，宿主内未验）：把本版重建产物挂进 `test` 或已挂载的 `stable-dev/web`，实跑 ① 原生 `web_search` 一条中文查询，确认结果 `url` 均为目标站点（无 `bing.com/ck/a`）；② `read_source` 打开其中一条得正文而非跳转壳；③ 同进程第二次检索的出站次数为 1（会话已在位，未重复预热）；④ 设置页「诊断」对 `bing` 单源实跑返回 `status: ok` 且非 `degraded`。挂载与重启**须用户明确指令**。
 
 ## 2026-09-18 test 实测实录（0.1.2-rc.1）
 

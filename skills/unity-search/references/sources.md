@@ -11,11 +11,11 @@
 
 ## 网页引擎（10，`sources: ["web"]` = 链式跑，逐 id = 指定引擎直调）
 
-链行为：按设置 `chain.order` 依次尝试，第一个"有结果"的引擎赢；错误进冷却（默认 300s，冷却期内跳过）；全部错误 → `chain_exhausted`；`attempts` 逐引擎记 `ok / ok-empty / error / skipped(原因)`。
+链行为：按设置 `chain.order` 依次尝试，第一个"有结果且未自陈降级"的引擎赢；错误进冷却（默认 300s，冷却期内跳过）；软降级（`degraded` 自陈，如 bing 结果不覆盖查询词）不冷却、留作兜底并继续试后续引擎；全部错误 → `chain_exhausted`；`attempts` 逐引擎记 `ok / ok-empty / degraded / error / skipped(原因)`。
 
 | id | KEY | 端点/方式 | timeRange | 备注 |
 |---|---|---|---|---|
-| bing | 免 | HTML 解析 | ✗（ez 参数活体实证零效果，已剔除） | 结果含 news 混排 |
+| bing | 免 | HTML 解析 | ✗（ez 参数活体实证零效果，已剔除） | 结果含 news 混排；`ck/a` 包装自动解为真实目标；检索前自动建会话（首查询多一次首页请求） |
 | ddg | 免 | HTML（html.duckduckgo.com） | ✓（df=d/w/m/y；本机环境未证效） | uddg 包装自动解 |
 | ddg-lite | 免 | HTML（lite.duckduckgo.com） | ✓（df；同上） | 索引配对解析，容错优先 |
 | anysearch | 免 | POST api.anysearch.com/v1/search | ✗ | 活体证实响应无 answer 字段；snippet 缺时回落 content |
@@ -53,6 +53,7 @@
 
 ## 验证状态（2026-09-09 活体后）
 
-- 已实证：bing（`b_algo` 锚点稳定；ez 时间参数**无效已剔除**）、anysearch（无 answer 字段）、keenable（MCP 文本块锚点 + 时间窗生效）、arxiv/hn（timeRange 生效）、其余成功源见插件 `docs/technical-details/源适配器清单与端点契约.md`《活体验证记录》。
+- 已实证：bing（`b_algo` 锚点稳定；ez 时间参数**无效已剔除**；`ck/a` 包装解包与会话预热 2026-10-17 活体实证，结果 URL 已是真实目标）、anysearch（无 answer 字段）、keenable（MCP 文本块锚点 + 时间窗生效）、arxiv/hn（timeRange 生效）、其余成功源见插件 `docs/technical-details/源适配器清单与端点契约.md`《活体验证记录》。
+- 读到 `degraded` 自陈（结果有条目但不覆盖查询词）时按"结果不可信"处理：换查询词或换源，别直接引用。
 - 本机网络不可证（DNS 污染，实现未判负）：ddg / ddg-lite / wikipedia / v2ex / reddit / github / searxng 公共实例——换净网络复测。
 - 待 key 实跑：tavily / exa / perplexity / deepseek-official（deepseek-official 复刻块结构亦在此列）。

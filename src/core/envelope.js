@@ -183,8 +183,8 @@ export function projectToSeam(envelope, chainInfo) {
   if (envelope.status === 'degraded') {
     value.content = degradedNote(envelope, chainInfo)
   } else if (chainInfo) {
-    // 单 web 源信封恒为 ok，但链内可能带过失败/空结果引擎：降级注记按链明细补（L0-Seam接入 投影规则例）。
-    const skipped = chainInfo.tried.filter((t) => t.outcome === 'error' || t.outcome === 'ok-empty')
+    // 单 web 源信封恒为 ok，但链内可能带过失败/空结果/软降级引擎：降级注记按链明细补（L0-Seam接入 投影规则例）。
+    const skipped = chainInfo.tried.filter((t) => t.outcome === 'error' || t.outcome === 'ok-empty' || t.outcome === 'ok-degraded')
     if (chainInfo.winner && skipped.length > 0) {
       value.content = `引擎链降级：${skipped.map((t) => `${t.id}(${t.code ?? t.reason ?? 'n/a'})`).join(', ')} 未产出可用结果，结果来自备选引擎 ${chainInfo.winner}`
     }
@@ -195,7 +195,7 @@ export function projectToSeam(envelope, chainInfo) {
 /**
  * @typedef {Object} ChainInfo 引擎链一次调用的明细（chain.js 产出，仅供 seam 注记措辞）。
  * @property {string | null} winner 胜出引擎 id；无胜出为 null。
- * @property {Array<{id: string, outcome: 'ok' | 'ok-empty' | 'error' | 'skipped', code?: string, reason?: string}>} tried 顺序尝试记录。
+ * @property {Array<{id: string, outcome: 'ok' | 'ok-empty' | 'ok-degraded' | 'error' | 'skipped', code?: string, reason?: string}>} tried 顺序尝试记录。
  */
 
 /**

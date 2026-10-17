@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { createWebChain } from '../src/core/chain.js'
 import { makeClock, makeRuntime, makeAdapter, okOutcome } from './helpers.mjs'
 
-/** 造一个按剧本响应的引擎：'ok' 出 1 条、'empty' 出 0 条、'error' 失败、'throw' 违约抛出。 */
+/** 造一个按剧本响应的引擎：'ok' 出 1 条、'empty' 出 0 条、'degraded' 出 1 条但自陈不可信、'error' 失败、'throw' 违约抛出。 */
 function scriptedEngine(id, behavior, hits) {
   return {
     id,
@@ -16,6 +16,7 @@ function scriptedEngine(id, behavior, hits) {
       if (behavior === 'throw') throw new Error('contract violation')
       if (behavior === 'error') return { status: 'error', items: [], latencyMs: 1, error: { code: 'rate_limited', message: '429' } }
       if (behavior === 'empty') return okOutcome([])
+      if (behavior === 'degraded') return { ...okOutcome([{ url: `https://${id}.tld/r` }]), degraded: { reason: '结果未覆盖查询词' }, warnings: ['结果未覆盖查询词'] }
       return okOutcome([{ url: `https://${id}.tld/r` }])
     },
   }
@@ -114,6 +115,25 @@ test('引擎违约抛出 → internal 尝试记录，不进冷却', async () => 
   assert.equal(r.info.winner, 'ddg')
   assert.equal(r.info.tried[0].code, 'internal')
   assert.equal(state.get('bing').coolingUntil, 0)
+})
+
+test('软降级不阻断兜底：degraded 引擎继续链，后续可信引擎胜出', async () => {
+  const { chain, runtime, hits, state } = harness([['bing', 'degraded'], ['ddg', 'ok']])
+  const r = await chain.search({ query: 'q' }, runtime)
+  assert.deepEqual(hits, ['bing', 'ddg'], '降级结果不得终结链')
+  assert.equal(r.info.winner, 'ddg')
+  assert.deepEqual(r.info.tried.map((t) => [t.id, t.outcome]), [['bing', 'ok-degraded'], ['ddg', 'ok']])
+  assert.deepEqual(r.attempts.map((a) => a.outcome), ['degraded', 'ok'])
+  assert.match(r.warnings.join(' '), /bing 结果疑似上游降级（结果未覆盖查询词），继续尝试后续引擎/)
+  assert.equal(state.get('bing').coolingUntil, 0, '软降级不进冷却（上游没坏）')
+})
+
+test('只有降级引擎出结果 → 仍返回其条目，但 warnings 显形', async () => {
+  const { chain, runtime } = harness([['bing', 'degraded'], ['ddg', 'empty']])
+  const r = await chain.search({ query: 'q' }, runtime)
+  assert.equal(r.info.winner, null)
+  assert.equal(r.outcome.items.length, 1, '降级结果仍胜过空手而归')
+  assert.match(r.warnings.join(' '), /仅 bing 返回结果且自陈不可信，已按降级结果返回/)
 })
 
 test('available()：有在线引擎才 true；available 全 false → false', () => {

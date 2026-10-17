@@ -46,6 +46,7 @@
  * @property {string} [answer] 源自带答案/摘要（如 Perplexity、anysearch）。
  * @property {SourceError} [error] status==='error' 时必带。
  * @property {number} latencyMs
+ * @property {{ reason: string }} [degraded] 软降级自陈：结构完好但结果不覆盖查询词（上游降级档），链据此继续兜底而非就此胜出。
  * @property {string[]} [uncertainty] 该源对本结果的不确定声明（动态；与适配器静态声明合并）。
  * @property {string[]} [warnings] 该源的非致命问题。
  */
@@ -86,6 +87,7 @@
  * @property {() => number} now 时钟（ms epoch），测试注入假时钟。
  * @property {(ms: number, signal: AbortSignal) => Promise<void>} sleep 可取消的等待（限速闸用）。
  * @property {{ gate: (host: string, minMs: number, signal: AbortSignal) => Promise<{ ok: boolean, error?: SourceError }> }} throttle 按 host 节流闸（http.js createThrottle 产出）。
+ * @property {import('./cookies.js').CookieJar} [cookies] 按域会话 cookie 罐（cookies.js createCookieJar 产出）；缺省即不维持会话。
  * @property {{ lookup: (hostname: string) => Promise<Array<{ address: string } | string>> } } [dns] 域名解析（read 路径 SSRF 校验的注入点）；缺省按"无法校验"失败关闭。
  * @property {CoreConfig} config 解析后的设置快照（schema 默认值已由 adapter 层填充）。
  */

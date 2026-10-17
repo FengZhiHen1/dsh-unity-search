@@ -20,13 +20,13 @@ export function makeClock(start = 1_700_000_000_000) {
 }
 
 /**
- * 最小 Response 替身（对齐 httpRequest 消费面：ok/status/headers.get/body.getReader/text）。
+ * 最小 Response 替身（对齐 httpRequest 消费面：ok/status/headers.get/getSetCookie/body.getReader/text）。
  * @param {number} status
  * @param {string} body
- * @param {{ contentType?: string, location?: string, chunks?: number }} [opts]
+ * @param {{ contentType?: string, location?: string, chunks?: number, setCookies?: string[] }} [opts]
  */
 export function makeResponse(status, body, opts = {}) {
-  const { contentType = 'text/html; charset=utf-8', location, chunks = 1 } = opts
+  const { contentType = 'text/html; charset=utf-8', location, chunks = 1, setCookies = [] } = opts
   const headers = new Map([['content-type', contentType]])
   if (location) headers.set('location', location)
   /** @type {string[]} */
@@ -49,7 +49,10 @@ export function makeResponse(status, body, opts = {}) {
   return {
     ok: status >= 200 && status < 300,
     status,
-    headers: { get: (name) => headers.get(name.toLowerCase()) ?? null },
+    headers: {
+      get: (name) => headers.get(name.toLowerCase()) ?? null,
+      getSetCookie: () => [...setCookies],
+    },
     body: {
       getReader: () => reader,
       async cancel() {
@@ -86,7 +89,7 @@ export function makeFetch(routes) {
 
 /**
  * 组装最小 CoreRuntime（字段齐全，缺省中性）。
- * @param {{ clock?: ReturnType<typeof makeClock>, fetch?: (url: string, init?: Record<string, unknown>) => Promise<unknown>, config?: Record<string, unknown>, resolveCredential?: (ref: string) => string | undefined, dns?: { lookup: (host: string) => Promise<Array<{ address: string }>> }, sleep?: (ms: number, signal: AbortSignal) => Promise<void> }} [overrides]
+ * @param {{ clock?: ReturnType<typeof makeClock>, fetch?: (url: string, init?: Record<string, unknown>) => Promise<unknown>, config?: Record<string, unknown>, resolveCredential?: (ref: string) => string | undefined, dns?: { lookup: (host: string) => Promise<Array<{ address: string }>> }, sleep?: (ms: number, signal: AbortSignal) => Promise<void>, cookies?: import('../src/core/cookies.js').CookieJar }} [overrides]
  */
 export function makeRuntime(overrides = {}) {
   const clock = overrides.clock ?? makeClock()
@@ -126,6 +129,7 @@ export function makeRuntime(overrides = {}) {
     config,
     logs,
     ...(overrides.dns ? { dns: overrides.dns } : {}),
+    ...(overrides.cookies ? { cookies: overrides.cookies } : {}),
   }
   return /** @type {import('../src/core/types.js').CoreRuntime} */ (runtime)
 }

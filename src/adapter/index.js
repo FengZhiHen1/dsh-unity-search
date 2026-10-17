@@ -7,6 +7,7 @@
 import { promises as nodeDns } from 'node:dns'
 import { createRegistry } from '../core/registry.js'
 import { createThrottle } from '../core/http.js'
+import { createCookieJar } from '../core/cookies.js'
 import { createWebChain } from '../core/chain.js'
 import { webEngines } from '../core/engines/index.js'
 import { academicSources } from '../core/academic/index.js'
@@ -76,6 +77,8 @@ export default {
     const engineState = new Map()
     const chain = createWebChain({ engines: webEngines, state: engineState })
     const throttle = createThrottle({ now: () => Date.now(), sleep, warn: (msg) => logger.warn(msg) })
+    // 会话 cookie 罐：与冷却表同属 fiber 作用域实例——插件重载即重建（不落盘，凭据不外泄）。
+    const cookies = createCookieJar({ now: () => Date.now() })
 
     /**
      * 每次调用组装 core runtime（config 现读快照、signal 逐调用注入）；
@@ -94,6 +97,7 @@ export default {
         now: () => Date.now(),
         sleep,
         throttle,
+        cookies,
         dns: {
           lookup: async (hostname) => nodeDns.lookup(hostname, { all: true }),
         },

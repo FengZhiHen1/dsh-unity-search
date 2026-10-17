@@ -26,6 +26,7 @@ async function harness(readSourceCfg = {}) {
     ['https://badrd.tld/go', () => makeResponse(302, '', { location: 'http://127.0.0.1/secret' })],
     ['https://loop.tld/go', () => makeResponse(302, '', { location: 'https://loop.tld/go' })],
     ['https://plain.tld/t.txt', () => makeResponse(200, PARAGRAPH, { contentType: 'text/plain; charset=utf-8' })],
+    ['https://shell.tld/go', () => makeResponse(200, '<html><head><script>window.location.href="https://target.tld/x"</script></head><body><p>Please if the page does not redirect automatically click here.</p></body></html>')],
   ])
   const runtime = makeRuntime({
     fetch,
@@ -139,6 +140,14 @@ test('HTML 抽取空正文 → raw 落盘自救通道', async () => {
   assert.match(r.warnings.join(' '), /原始响应体已按 raw 落盘/)
   const onDisk = await readFile(String(r.artifactPath), 'utf8')
   assert.match(onDisk, /<img/)
+  await rm(dir, { recursive: true, force: true })
+})
+
+test('跳转壳（200 + JS 中转页）→ warning 显形，不静默当正文', async () => {
+  const { runtime, dir } = await harness()
+  const r = await readSource({ url: 'https://shell.tld/go' }, { runtime })
+  assert.equal(r.status, 'ok')
+  assert.match(r.warnings.join(' '), /跳转壳/)
   await rm(dir, { recursive: true, force: true })
 })
 

@@ -6,7 +6,7 @@ DSH 统一检索插件：**默认接管 `web_search` 引擎链**（免 key 兜�
 
 | 面 | 说明 |
 |---|---|
-| `web_search` seam | 注册为宿主默认检索 provider（`cordis.patch.yml` 双键重述 `searchProvider: unity-search` + `fetchProvider: http`）。按配置序跑引擎链（bing → ddg → anysearch → …），首个出结果者赢；错误进冷却并尝试下一个；全失败抛原生 `WebError`。免 key 链路开箱即用，key 引擎在设置页录入凭据后启用 |
+| `web_search` seam | 注册为宿主默认检索 provider（`cordis.patch.yml` 双键重述 `searchProvider: unity-search` + `fetchProvider: http`）。按配置序跑引擎链（bing → ddg → anysearch → …），首个出结果者赢；错误进冷却并尝试下一个；引擎自陈软降级（有结果但不覆盖查询词）时链继续兜底而非就此胜出；全失败抛原生 `WebError`。免 key 链路开箱即用，key 引擎在设置页录入凭据后启用 |
 | `search_sources` | 23 源（10 网页引擎 + 5 学术 + 8 平台）多源 fanout，产出恒定结构的**证据信封**：`status / sources.{queried,succeeded,failed} / items(+alsoIn) / duplicatesRemoved / answer / uncertainty / warnings / attempts`。跨源按 DOI > arXiv id > URL > 标题去重，多源命中即佐证 |
 | `read_source` | 有界阅读：SSRF 私网拒绝（DNS 复校验逐跳重定向）→ 抽取正文 → focus 关键词重排 → `offset/limit` 分页（默认 8000、硬上限 20000 字符）→ **全量落盘** artifact（LRU 目录管理），不重抓即可 grep 自救 |
 | skill `unity-search` | 检索面地图 / 源能力矩阵 / fanout 与交叉核验 / 学术工作流 / 有界阅读纪律 / L3 MCP 桥逃生舱；重内容下沉 `references/` |
@@ -42,7 +42,9 @@ node build-client.mjs          # 改 client 后重建 dist/client.js（产物必
 
 ## 安全姿态
 
-- 出站 UA 诚实署名；arXiv 3s 礼貌间隔；OpenAlex/Crossref/PubMed 支持 `contact`（mailto）署名。
+- 出站 UA 诚实署名；结果 URL 先解引擎跳转包装（`ck/a`/`uddg`）再交付，读到的是目标站点而非中转壳。
+- 会话 cookie 罐按域隔离、有容量与长度上界、只存内存不落盘不进日志（插件重载即丢）；插件不伪装浏览器指纹。
+- arXiv 3s 礼貌间隔；OpenAlex/Crossref/PubMed 支持 `contact`（mailto）署名。
 - `read_source` 默认拒绝私网/元数据地址（含 IPv4-mapped、NAT64 内嵌 v4），DNS 无解析器时失败关闭；`allowPrivate` 为明示危险开关。
 - API key 一律走 DSH 凭据中心（声明引用名 + 显式录入，不做环境变量兜底，防跨实例串 key）。
 - 全仓无重试策略：失败在信封/尝试记录里显形，由模型决定重查。
