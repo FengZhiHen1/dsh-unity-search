@@ -1,5 +1,8 @@
 # dsh-unity-search
 
+> **状态：不再作为正式启用的插件（2026-10-27）。**
+> 本仓库仅保留源码、设计文档与实测记录作为历史与参考；不再发布，也不再作为任何实例的安装或挂载目标。
+
 DSH 统一检索插件：**默认接管 `web_search` 引擎链**（免 key 兜底、失败显形），另以两个常驻工具提供**多源证据检索**与**有界阅读**，捆绑 `unity-search` 技能与「统一搜索」设置节。
 
 ## 能力面
@@ -12,14 +15,9 @@ DSH 统一检索插件：**默认接管 `web_search` 引擎链**（免 key 兜�
 | skill `unity-search` | 检索面地图 / 源能力矩阵 / fanout 与交叉核验 / 学术工作流 / 有界阅读纪律 / L3 MCP 桥逃生舱；重内容下沉 `references/` |
 | 设置节「统一搜索」 | 四页签（网页引擎 / 检索源 / 通用 / 诊断）：引擎链序与启停、凭据引用录入（官方 credentials 中心，值永不回显）、诊断实跑单源并呈现信封；写路径 `expectedRevision` 防陈旧覆盖 |
 
-## 安装（web 稳定 profile）
+## 安装
 
-```
-dsh plugin --profile web add github:FengZhiHen1/dsh-unity-search
-```
-
-试验 profile（`test`）可直挂源码：`dsh plugin --profile test add link:./plugins/dsh-unity-search`。
-⚠ 与 `dsh-free-search` 互斥（同一 seam 双 provider → `WEB_DUPLICATE_PROVIDER`）：接管前从同 profile 移除 free-search。
+本插件已停止启用，不提供安装步骤；源码仅作留档。
 
 ## 结构
 
